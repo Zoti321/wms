@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>领域模型 · 仓脉 WMS</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">仓脉 WMS</span>
+        <span class="brand-sub">Docs</span>
+      </a>
+      <nav class="nav">
+        <a href="index.html">总览</a>
+        <a href="domain.html" class="active">领域模型</a>
+        <a href="requirements.html">需求文档</a>
+        <a href="development.html">开发文档</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#m1">Context Map</a></li>
+        <li><a href="#m2">上下文关系</a></li>
+        <li><a href="#m3">明确排除</a></li>
+        <li><a href="#m4">核心术语</a></li>
+        <li><a href="#m5">源文件</a></li>
+      </ol>
+    </aside>
+
+    <article class="doc">
+      <div class="doc-meta">
+        <span class="badge">Domain · 限界上下文</span>
+        <span>与仓库根目录 CONTEXT-MAP.md 同步</span>
+        <span>版本 1.1 · 2026-08-20</span>
+      </div>
+
+      <h1>仓脉 WMS 领域模型</h1>
+      <p class="lead">交付面（后端 API、网页后台、小程序）是适配器，不是上下文。下文描述业务边界与统一语言；需求与实现必须使用这些术语。</p>
+
+      <h2 id="m1">1. Context Map</h2>
+      <div class="grid-2">
+        <div class="feature">
+          <h3>主数据 catalog</h3>
+          <p>仓库、商品（SKU）、库区/库位、供应商与客户。MVP 只启用一个仓库，模型仍保留仓库为一等概念。</p>
+        </div>
+        <div class="feature">
+          <h3>库存 inventory</h3>
+          <p>数量真相：在库 / 冻结 / 可用与库存流水。唯一允许改账的地方；负责库存预警。</p>
+        </div>
+        <div class="feature">
+          <h3>入库 inbound</h3>
+          <p>入库单生命周期与上架执行；不拥有数量账。</p>
+        </div>
+        <div class="feature">
+          <h3>出库 outbound</h3>
+          <p>出库单生命周期与拣货执行；审核分配、拣货实扣。</p>
+        </div>
+        <div class="feature">
+          <h3>盘点 stocktake</h3>
+          <p>盘点单、盘点锁、实盘与盈亏确认。</p>
+        </div>
+      </div>
+
+      <h2 id="m2">2. 上下文关系</h2>
+      <ul>
+        <li><strong>主数据 → 其余</strong>：只引用标识；库存读取安全库存阈值以生成/解除预警。</li>
+        <li><strong>入库 → 库存</strong>：上架确认请求增加在库；记账成功才算上架成功。</li>
+        <li><strong>出库 → 库存</strong>：审核请求分配（可用→冻结）；拣货请求实扣；取消未拣请求释放预留。</li>
+        <li><strong>出库 → 入库</strong>：已实扣纠错不走取消抹账，另开退货入库（或二期冲销）。</li>
+        <li><strong>盘点 → 主数据 / 库存</strong>：盘点锁禁止上架与出库；审核后一次性盈亏调整并释锁。</li>
+        <li><strong>入 / 出 / 盘</strong>：彼此不直接改对方单据，不共享可变库存状态。</li>
+      </ul>
+
+      <div class="flow">
+        <span>上架 / 分配 / 实扣 / 盈亏</span><span class="arrow">→</span>
+        <span>库存记账</span><span class="arrow">→</span>
+        <span>库存流水</span>
+      </div>
+
+      <h2 id="m3">3. 明确排除（非领域上下文）</h2>
+      <ul>
+        <li><strong>身份与权限</strong>：用户、角色、菜单/接口鉴权 — 平台支撑。</li>
+        <li><strong>操作日志</strong>：谁点了登录/审核 — 平台审计；不要与库存流水混称。</li>
+        <li><strong>网页后台 / 小程序 / API</strong>：交付与适配，不是限界上下文。</li>
+      </ul>
+
+      <h2 id="m4">4. 核心术语（摘要）</h2>
+      <table>
+        <thead>
+          <tr><th>术语</th><th>上下文</th><th>要点</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>仓库</td><td>主数据</td><td>一等概念；单据与库存均归属</td></tr>
+          <tr><td>安全库存</td><td>主数据</td><td>阈值；是否预警由库存判定</td></tr>
+          <tr><td>在库 / 冻结 / 可用</td><td>库存</td><td>可用 = 在库 − 冻结</td></tr>
+          <tr><td>分配（预留）</td><td>出库→库存</td><td>审核时可用→冻结</td></tr>
+          <tr><td>实扣</td><td>出库→库存</td><td>拣货时冻结与在库同减</td></tr>
+          <tr><td>释放预留</td><td>出库→库存</td><td>取消未拣：冻结→可用</td></tr>
+          <tr><td>盘点锁</td><td>盘点</td><td>锁库位作业；≠ 冻结数量</td></tr>
+          <tr><td>库存流水</td><td>库存</td><td>账为何变化；关联单据行</td></tr>
+          <tr><td>库存预警</td><td>库存</td><td>汇总可用低于安全库存</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout warning">
+        <strong>勿混用「冻结」：</strong>库位状态冻结 / 盘点锁（空间与作业）≠ 冻结数量（出库预留口径）。
+      </div>
+
+      <h2 id="m5">5. 源文件</h2>
+      <p>权威定义在仓库内 Markdown（供 agent 与开发共读）：</p>
+      <ul>
+        <li><code>CONTEXT-MAP.md</code></li>
+        <li><code>src/catalog/CONTEXT.md</code></li>
+        <li><code>src/inventory/CONTEXT.md</code></li>
+        <li><code>src/inbound/CONTEXT.md</code></li>
+        <li><code>src/outbound/CONTEXT.md</code></li>
+        <li><code>src/stocktake/CONTEXT.md</code></li>
+      </ul>
+      <p>本页为文档站点可读摘要；若与 Markdown 冲突，以 Markdown 为准并回改本页。</p>
+
+      <div class="callout">
+        下一步：<a href="requirements.html">需求文档</a> · <a href="development.html">开发文档</a>
+      </div>
+    </article>
+  </div>
+
+  <footer class="site-footer">
+    仓脉 WMS · 领域模型 · <a href="index.html">返回总览</a>
+  </footer>
+</body>
+</html>

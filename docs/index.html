@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>仓脉 WMS · 仓库管理系统建设指南</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">仓脉 WMS</span>
+        <span class="brand-sub">Docs</span>
+      </a>
+      <nav class="nav">
+        <a href="index.html" class="active">总览</a>
+        <a href="domain.html">领域模型</a>
+        <a href="requirements.html">需求文档</a>
+        <a href="development.html">开发文档</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <p class="badge">仓库管理系统 · 建设指南</p>
+    <h1 class="hero-brand">仓脉 WMS</h1>
+    <p>单据驱动、库存唯一账本、出库软分配。覆盖主数据、入库、出库、盘点与预警；交付面含后端、网页后台与小程序。</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="domain.html">阅读领域模型</a>
+      <a class="btn btn-ghost" href="requirements.html">需求文档</a>
+      <a class="btn btn-ghost" href="development.html">开发文档</a>
+    </div>
+  </section>
+
+  <section class="cards">
+    <a class="card-link" href="domain.html">
+      <div class="num">01 · DOMAIN</div>
+      <h2>领域模型</h2>
+      <p>限界上下文、统一语言与上下文关系；需求与代码共用同一套术语。</p>
+    </a>
+    <a class="card-link" href="requirements.html">
+      <div class="num">02 · REQUIREMENTS</div>
+      <h2>需求文档</h2>
+      <p>目标、角色、功能/非功能、业务规则、用例与验收标准。</p>
+    </a>
+    <a class="card-link" href="development.html">
+      <div class="num">03 · DEVELOPMENT</div>
+      <h2>开发文档</h2>
+      <p>Monorepo 架构、模块边界、数据模型、API、状态机与里程碑。</p>
+    </a>
+  </section>
+
+  <main class="layout solo" style="padding-top: 0;">
+    <article class="doc" id="howto">
+      <div class="doc-meta">
+        <span class="badge">建设路径</span>
+        <span>版本 1.1 · 2026-08-20</span>
+      </div>
+      <h1>做一个仓库管理系统该怎么做</h1>
+      <p class="lead">先钉死领域语言与上下文边界，再写需求与落码。核心问题是：「货从哪来、放哪、怎么出、谁能改账、怎么对账」。</p>
+
+      <h2>推荐建设步骤</h2>
+      <ol class="steps">
+        <li>
+          <strong>领域建模</strong><br />
+          划分主数据 / 库存 / 入库 / 出库 / 盘点；明确库存唯一账本、软分配与盘点锁（见 <a href="domain.html">领域模型</a>）。
+        </li>
+        <li>
+          <strong>编写并评审需求</strong><br />
+          用统一语言写清规则与验收（见 <a href="requirements.html">需求文档</a>），冻结 MVP。
+        </li>
+        <li>
+          <strong>架构与开发设计</strong><br />
+          Monorepo：后端 + 网页后台 + 小程序；按上下文分包（见 <a href="development.html">开发文档</a>）。
+        </li>
+        <li>
+          <strong>按里程碑迭代</strong><br />
+          主数据 → 入库上架 → 出库分配/实扣 → 盘点锁与盈亏 → 预警与审计。
+        </li>
+        <li>
+          <strong>测试与上线</strong><br />
+          覆盖分配超卖、释放预留、盘点锁互斥、流水与操作日志分离；备份与回滚预案。
+        </li>
+      </ol>
+
+      <h2>MVP 建议范围</h2>
+      <div class="grid-2">
+        <div class="feature">
+          <h3>必须有</h3>
+          <p>仓库（一等，单仓启用）、SKU 与库位、入库上架、出库分配+实扣、实时库存与流水、盘点锁、低库存预警、权限与操作日志。</p>
+        </div>
+        <div class="feature">
+          <h3>可二期</h3>
+          <p>批次/保质期、波次拣货、条码/PDA、多仓调拨、ERP 双向同步、红冲单细化。</p>
+        </div>
+      </div>
+
+      <h2>核心业务流（一眼看懂）</h2>
+      <div class="flow">
+        <span>采购到货</span><span class="arrow">→</span>
+        <span>入库审核</span><span class="arrow">→</span>
+        <span>上架入账</span><span class="arrow">→</span>
+        <span>出库分配</span><span class="arrow">→</span>
+        <span>拣货实扣</span>
+      </div>
+      <p>全程单据驱动：改账只发生在库存上下文，并留下关联单据行的库存流水。</p>
+
+      <div class="callout">
+        <strong>文档约定：</strong>术语以领域模型为准；技术栈示例为 Vue 3 + 小程序 + Spring Boot + PostgreSQL，可替换实现，但上下文边界与软分配/盘点锁建议保持不变。
+      </div>
+
+      <h2>相关文档</h2>
+      <ul>
+        <li><a href="domain.html">《领域模型》</a> — 上下文与统一语言</li>
+        <li><a href="requirements.html">《需求规格说明书》</a> — 做什么、如何验收</li>
+        <li><a href="development.html">《开发设计说明书》</a> — 怎么拆、怎么部署</li>
+      </ul>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    仓脉 WMS 文档站点 · 浏览器直接打开 <code>docs/</code> 下 HTML 即可
+  </footer>
+</body>
+</html>
