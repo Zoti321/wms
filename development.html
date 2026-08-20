@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>开发文档 · 仓脉 WMS</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">仓脉 WMS</span>
+        <span class="brand-sub">Docs</span>
+      </a>
+      <nav class="nav">
+        <a href="index.html">总览</a>
+        <a href="requirements.html">需求文档</a>
+        <a href="development.html" class="active">开发文档</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#d1">概述与原则</a></li>
+        <li><a href="#d2">技术选型</a></li>
+        <li><a href="#d3">系统架构</a></li>
+        <li><a href="#d4">模块划分</a></li>
+        <li><a href="#d5">数据模型</a></li>
+        <li><a href="#d6">API 设计</a></li>
+        <li><a href="#d7">状态机</a></li>
+        <li><a href="#d8">工程结构</a></li>
+        <li><a href="#d9">开发规范</a></li>
+        <li><a href="#d10">里程碑</a></li>
+        <li><a href="#d11">部署运维</a></li>
+      </ol>
+    </aside>
+
+    <article class="doc">
+      <div class="doc-meta">
+        <span class="badge">SDD · 开发设计说明书</span>
+        <span>文档编号 WMS-SDD-001</span>
+        <span>版本 1.0 · 2026-08-20</span>
+        <span class="badge amber">对齐 SRS 1.0</span>
+      </div>
+
+      <h1>仓脉 WMS 开发设计说明书</h1>
+      <p class="lead">本文档给出实现路径：技术栈、分层架构、模块边界、核心表结构、API 约定、状态机、目录规范与上线里程碑。需求细节见 <a href="requirements.html">需求文档</a>。</p>
+
+      <h2 id="d1">1. 概述与设计原则</h2>
+      <ul>
+        <li><strong>单据驱动库存</strong>：库存变更只通过领域服务在事务内完成，并写 ledger 流水。</li>
+        <li><strong>幂等与防超卖</strong>：出库确认使用库存行 <code>version</code> 乐观锁；重复提交用业务单号幂等键。</li>
+        <li><strong>模块内聚</strong>：主数据、入库、出库、库存、盘点、权限分离，通过应用服务编排。</li>
+        <li><strong>先单仓后扩展</strong>：表结构预留 <code>warehouse_id</code>，MVP 可固定默认仓。</li>
+      </ul>
+
+      <h2 id="d2">2. 技术选型（推荐示例）</h2>
+      <table>
+        <thead>
+          <tr><th>层级</th><th>选型</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>前端</td><td>Vue 3 + TypeScript + Vite + Element Plus</td><td>管理后台；路由权限 + 表格/表单为主</td></tr>
+          <tr><td>后端</td><td>Java 17 + Spring Boot 3</td><td>REST API；Spring Security + JWT</td></tr>
+          <tr><td>持久化</td><td>PostgreSQL 15+ + Flyway</td><td>事务可靠；迁移脚本版本化</td></tr>
+          <tr><td>缓存（可选）</td><td>Redis</td><td>会话、热点 SKU 查询、分布式锁（可选）</td></tr>
+          <tr><td>文档</td><td>OpenAPI 3（springdoc）</td><td>前后端契约</td></tr>
+          <tr><td>部署</td><td>Docker Compose</td><td>app + db（+ redis）一键本地/测试环境</td></tr>
+        </tbody>
+      </table>
+      <p>若团队偏 Node / Go / .NET，可替换实现语言，但<strong>库存事务、状态机、流水表</strong>设计建议保持一致。</p>
+
+      <h2 id="d3">3. 系统架构</h2>
+      <pre>┌─────────────┐     HTTPS/JSON      ┌──────────────────────────┐
+│  Web Admin  │ ───────────────────▶  │  API Gateway / Boot App │
+│  (Vue 3)    │ ◀───────────────────  │  Auth · ACL · Controllers│
+└─────────────┘                     └────────────┬─────────────┘
+                                                 │
+                    ┌────────────────────────────┼────────────────┐
+                    ▼                            ▼                ▼
+             Application Services         Domain Services    Infrastructure
+             (用例编排)                   (库存/单据规则)   (JPA/Redis/MQ)
+                    │                            │
+                    └────────────┬───────────────┘
+                                 ▼
+                          PostgreSQL
+                     (业务表 + ledger + 审计)</pre>
+
+      <h3>分层约定</h3>
+      <ul>
+        <li><strong>Controller</strong>：参数校验、鉴权注解、DTO 转换，不含业务规则</li>
+        <li><strong>Application</strong>：一个用例一个服务方法（如 <code>confirmInboundPutaway</code>）</li>
+        <li><strong>Domain</strong>：库存扣减、状态流转校验</li>
+        <li><strong>Infrastructure</strong>：仓储实现、外部系统适配</li>
+      </ul>
+
+      <h2 id="d4">4. 模块划分</h2>
+      <div class="grid-2">
+        <div class="feature">
+          <h3>mdm · 主数据</h3>
+          <p>SKU、库区库位、供应商/客户、字典。</p>
+        </div>
+        <div class="feature">
+          <h3>inbound · 入库</h3>
+          <p>入库单 CRUD、审核、上架确认。</p>
+        </div>
+        <div class="feature">
+          <h3>outbound · 出库</h3>
+          <p>出库单 CRUD、审核、拣货确认扣库存。</p>
+        </div>
+        <div class="feature">
+          <h3>inventory · 库存</h3>
+          <p>库存查询、流水、预警任务。</p>
+        </div>
+        <div class="feature">
+          <h3>stocktake · 盘点</h3>
+          <p>盘点单、盈亏审核、调整入账。</p>
+        </div>
+        <div class="feature">
+          <h3>iam · 权限审计</h3>
+          <p>用户角色、菜单权限、操作日志。</p>
+        </div>
+      </div>
+
+      <h2 id="d5">5. 数据模型（核心）</h2>
+      <h3>5.1 ER 关系（文字版）</h3>
+      <p>Warehouse 1—N Location；SKU 与 Location 通过 Inventory（N—N 关联实体）关联；InboundOrder / OutboundOrder 1—N OrderLine；所有变动写 InventoryLedger。</p>
+
+      <h3>5.2 关键表（简化 DDL 示意）</h3>
+      <pre>CREATE TABLE sku (
+  id            BIGSERIAL PRIMARY KEY,
+  warehouse_id BIGINT NOT NULL,
+  sku_code      VARCHAR(64) NOT NULL,
+  name          VARCHAR(200) NOT NULL,
+  unit          VARCHAR(16) NOT NULL,
+  safety_stock  NUMERIC(18,3) NOT NULL DEFAULT 0,
+  status        SMALLINT NOT NULL DEFAULT 1,
+  UNIQUE (warehouse_id, sku_code)
+);
+
+CREATE TABLE location (
+  id            BIGSERIAL PRIMARY KEY,
+  warehouse_id BIGINT NOT NULL,
+  location_code VARCHAR(64) NOT NULL,
+  zone          VARCHAR(32),
+  status        SMALLINT NOT NULL DEFAULT 1,
+  UNIQUE (warehouse_id, location_code)
+);
+
+CREATE TABLE inventory (
+  id            BIGSERIAL PRIMARY KEY,
+  warehouse_id BIGINT NOT NULL,
+  sku_id        BIGINT NOT NULL REFERENCES sku(id),
+  location_id   BIGINT NOT NULL REFERENCES location(id),
+  qty_on_hand   NUMERIC(18,3) NOT NULL DEFAULT 0,
+  qty_available NUMERIC(18,3) NOT NULL DEFAULT 0,
+  qty_frozen    NUMERIC(18,3) NOT NULL DEFAULT 0,
+  version       BIGINT NOT NULL DEFAULT 0,
+  UNIQUE (warehouse_id, sku_id, location_id)
+);
+
+CREATE TABLE inventory_ledger (
+  id            BIGSERIAL PRIMARY KEY,
+  warehouse_id BIGINT NOT NULL,
+  sku_id        BIGINT NOT NULL,
+  location_id   BIGINT NOT NULL,
+  change_qty    NUMERIC(18,3) NOT NULL,
+  bal_qty       NUMERIC(18,3) NOT NULL,
+  ref_type      VARCHAR(32) NOT NULL,  -- INBOUND / OUTBOUND / STOCKTAKE
+  ref_id        BIGINT NOT NULL,
+  ref_no        VARCHAR(64) NOT NULL,
+  operator_id   BIGINT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);</pre>
+
+      <div class="callout">
+        扣减库存伪代码：<code>UPDATE inventory SET qty_available = qty_available - :q, version = version + 1 WHERE id = :id AND version = :ver AND qty_available &gt;= :q</code>；影响行数为 0 则失败重试或报错。
+      </div>
+
+      <h2 id="d6">6. API 设计（节选）</h2>
+      <p>统一前缀 <code>/api/v1</code>；鉴权 Header：<code>Authorization: Bearer &lt;token&gt;</code>；响应包络：</p>
+      <pre>{
+  "code": 0,
+  "message": "ok",
+  "data": { },
+  "traceId": "..."
+}</pre>
+
+      <table>
+        <thead>
+          <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>POST</td><td>/auth/login</td><td>登录，返回 JWT</td></tr>
+          <tr><td>GET/POST</td><td>/skus</td><td>商品列表 / 创建</td></tr>
+          <tr><td>GET/POST</td><td>/locations</td><td>库位管理</td></tr>
+          <tr><td>POST</td><td>/inbound-orders</td><td>创建入库单</td></tr>
+          <tr><td>POST</td><td>/inbound-orders/{id}/approve</td><td>审核入库单</td></tr>
+          <tr><td>POST</td><td>/inbound-orders/{id}/putaway</td><td>上架确认（增库存）</td></tr>
+          <tr><td>POST</td><td>/outbound-orders</td><td>创建出库单</td></tr>
+          <tr><td>POST</td><td>/outbound-orders/{id}/approve</td><td>审核（可预占/校验）</td></tr>
+          <tr><td>POST</td><td>/outbound-orders/{id}/pick</td><td>拣货确认（扣库存）</td></tr>
+          <tr><td>GET</td><td>/inventories</td><td>按 SKU/库位查询</td></tr>
+          <tr><td>GET</td><td>/inventories/ledgers</td><td>库存流水</td></tr>
+          <tr><td>POST</td><td>/stocktakes</td><td>创建盘点</td></tr>
+          <tr><td>POST</td><td>/stocktakes/{id}/approve</td><td>审核盈亏并调账</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="d7">7. 单据状态机</h2>
+      <h3>入库</h3>
+      <div class="flow">
+        <span>DRAFT</span><span class="arrow">→</span>
+        <span>PENDING</span><span class="arrow">→</span>
+        <span>APPROVED</span><span class="arrow">→</span>
+        <span>PUTAWAY</span><span class="arrow">→</span>
+        <span>DONE</span>
+      </div>
+      <p>任意未完成态可转 <code>CANCELLED</code>（需权限；已上架部分需先定义回退策略，MVP 可限制「未上架才可取消」）。</p>
+
+      <h3>出库</h3>
+      <div class="flow">
+        <span>DRAFT</span><span class="arrow">→</span>
+        <span>PENDING</span><span class="arrow">→</span>
+        <span>APPROVED</span><span class="arrow">→</span>
+        <span>PICKING</span><span class="arrow">→</span>
+        <span>DONE</span>
+      </div>
+
+      <h2 id="d8">8. 工程结构（示例）</h2>
+      <pre>wms/
+├── apps/
+│   └── web/                 # Vue3 管理端
+├── services/
+│   └── wms-api/             # Spring Boot
+│       ├── controller/
+│       ├── application/
+│       ├── domain/
+│       ├── infrastructure/
+│       └── resources/db/migration/
+├── docs/                    # 可链到本 HTML 文档
+└── docker-compose.yml</pre>
+
+      <h2 id="d9">9. 开发规范</h2>
+      <ul>
+        <li>分支：<code>main</code> 保护；功能分支 <code>feature/*</code>；发版打 tag</li>
+        <li>提交信息：简体中文，说明「为什么」（如：修复出库并发超卖）</li>
+        <li>接口变更必须更新 OpenAPI；破坏性变更升 <code>/api/v2</code></li>
+        <li>库存相关单测：不足拒绝、乐观锁冲突、幂等重复提交</li>
+        <li>禁止在 Controller 直接改 <code>inventory</code> 表</li>
+        <li>日志：业务关键路径打 info；异常带 traceId；不落密码明文</li>
+      </ul>
+
+      <h2 id="d10">10. 里程碑计划</h2>
+      <table>
+        <thead>
+          <tr><th>阶段</th><th>周期</th><th>交付物</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>M0 开工</td><td>第 1 周</td><td>仓库初始化、CI、登录骨架、表结构 Flyway</td></tr>
+          <tr><td>M1 主数据</td><td>第 2–3 周</td><td>SKU/库位 CRUD、权限菜单</td></tr>
+          <tr><td>M2 入库闭环</td><td>第 4–5 周</td><td>入库单 + 上架 + 库存增加 + 流水</td></tr>
+          <tr><td>M3 出库闭环</td><td>第 6–7 周</td><td>出库单 + 扣减 + 防超卖 + 查询</td></tr>
+          <tr><td>M4 盘点报表</td><td>第 8–9 周</td><td>盘点调账、预警、导出、审计</td></tr>
+          <tr><td>M5 上线</td><td>第 10–11 周</td><td>UAT、性能与并发测试、备份演练、上线</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="d11">11. 部署与运维要点</h2>
+      <ul>
+        <li>环境：dev / staging / prod 隔离；密钥走环境变量</li>
+        <li>数据库每日备份；恢复演练至少每季度一次</li>
+        <li>监控：API 错误率、接口耗时、磁盘与连接池</li>
+        <li>上线检查清单：迁移脚本、回滚方案、只读账号、初始管理员</li>
+      </ul>
+
+      <div class="callout">
+        建议开发顺序与验收对齐需求文档第 8 章：先打通「入库→库存→出库」主路径，再补盘点与报表。返回 <a href="index.html">总览</a> 或重读 <a href="requirements.html">需求文档</a>。
+      </div>
+    </article>
+  </div>
+
+  <footer class="site-footer">
+    仓脉 WMS · 开发文档 WMS-SDD-001 · <a href="index.html">返回总览</a>
+  </footer>
+</body>
+</html>
