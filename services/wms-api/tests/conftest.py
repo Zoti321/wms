@@ -21,6 +21,9 @@ SEED_PASSWORD = "Admin@123456"
 
 # 依赖顺序：业务表 → 主数据（测试前清空）。
 _TRUNCATE_TABLES = (
+    "pick_record",
+    "outbound_order_line",
+    "outbound_order",
     "putaway_record",
     "inbound_order_line",
     "inbound_order",

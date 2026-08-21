@@ -12,10 +12,12 @@ from fastapi.responses import JSONResponse
 import app.catalog.infrastructure.models  # noqa: F401
 import app.inbound.infrastructure.models  # noqa: F401
 import app.inventory.infrastructure.models  # noqa: F401
+import app.outbound.infrastructure.models  # noqa: F401
 import app.platform.infrastructure.models  # noqa: F401
 from app.catalog.api.router import router as catalog_router
 from app.inbound.api.router import router as inbound_router
 from app.inventory.api.router import router as inventory_router
+from app.outbound.api.router import router as outbound_router
 from app.platform.api.auth import router as auth_router
 from app.shared.config import get_settings
 
@@ -57,6 +59,7 @@ def create_app() -> FastAPI:
     application.include_router(catalog_router, prefix="/api/v1")
     application.include_router(inventory_router, prefix="/api/v1")
     application.include_router(inbound_router, prefix="/api/v1")
+    application.include_router(outbound_router, prefix="/api/v1")
     return application
 
 

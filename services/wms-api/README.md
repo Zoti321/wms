@@ -19,6 +19,7 @@ uv run uvicorn app.main:app --reload --app-dir .
 登录：`POST /api/v1/auth/login`（body：`{"username":"admin","password":"Admin@123456"}`）  
 主数据（需 Bearer）：`/api/v1/warehouses`、`/skus`、`/locations`、`/suppliers`、`/customers`；删除一律 `POST .../{id}/deactivate`（停用，不物理删除）。库位空间状态字段为 `space_status`（idle/occupied/frozen），勿与库存冻结数量混淆。  
 入库：`/api/v1/inbound-orders`（submit / approve / putaway / cancel）；上架必须带 `Idempotency-Key`，经库存 `increase` 记账。  
+出库：`/api/v1/outbound-orders`（submit / approve / pick / cancel）；审核=分配、拣货=实扣、取消未拣=释放预留；approve/pick/cancel 必须带 `Idempotency-Key`。  
 库存查询：`GET /api/v1/inventories`、`GET /api/v1/inventories/ledgers`。
 
 ### Docker Compose 连接

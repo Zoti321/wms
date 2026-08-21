@@ -14,6 +14,7 @@ from app.shared.db import Base
 import app.catalog.infrastructure.models  # noqa: F401
 import app.inbound.infrastructure.models  # noqa: F401
 import app.inventory.infrastructure.models  # noqa: F401
+import app.outbound.infrastructure.models  # noqa: F401
 import app.platform.infrastructure.models  # noqa: F401
 
 config = context.config

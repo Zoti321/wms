@@ -1,4 +1,4 @@
-"""库存记账端口：本里程碑提供 increase；余额维度仓库+SKU+库位。"""
+"""库存记账端口：increase / allocate / deduct / release；余额维度仓库+SKU+库位。"""
 
 from __future__ import annotations
 
@@ -16,7 +16,14 @@ from app.inventory.infrastructure.models import (
 )
 
 INCREASE_SCOPE = "inventory.increase"
+ALLOCATE_SCOPE = "inventory.allocate"
+DEDUCT_SCOPE = "inventory.deduct"
+RELEASE_SCOPE = "inventory.release"
+
 REF_TYPE_PUTAWAY = "PUTAWAY"
+REF_TYPE_ALLOCATE = "ALLOCATE"
+REF_TYPE_PICK = "PICK"
+REF_TYPE_RELEASE = "RELEASE"
 
 
 class InventoryError(Exception):
@@ -27,8 +34,12 @@ class InventoryConflictError(InventoryError):
     """乐观锁冲突或幂等冲突。"""
 
 
+class InventoryInsufficientError(InventoryError):
+    """可用/冻结不足以完成记账。"""
+
+
 @dataclass(frozen=True)
-class IncreaseResult:
+class MutationResult:
     inventory_id: int
     qty_on_hand: str
     qty_frozen: str
@@ -36,6 +47,10 @@ class IncreaseResult:
     version: int
     ledger_id: int
     replayed: bool = False
+
+
+# 兼容既有调用方命名
+IncreaseResult = MutationResult
 
 
 def _fmt(qty: Decimal) -> str:
@@ -48,7 +63,7 @@ def _available(on_hand: Decimal, frozen: Decimal) -> Decimal:
 
 def _load_idempotent(
     session: Session, *, scope: str, key: str
-) -> IncreaseResult | None:
+) -> MutationResult | None:
     row = session.scalars(
         select(IdempotencyRecord).where(
             IdempotencyRecord.scope == scope,
@@ -58,11 +73,11 @@ def _load_idempotent(
     if row is None:
         return None
     payload = json.loads(row.response_json)
-    return IncreaseResult(**payload)
+    return MutationResult(**payload)
 
 
 def _store_idempotent(
-    session: Session, *, scope: str, key: str, result: IncreaseResult
+    session: Session, *, scope: str, key: str, result: MutationResult
 ) -> None:
     session.add(
         IdempotencyRecord(
@@ -73,24 +88,149 @@ def _store_idempotent(
     )
 
 
-def load_increase_idempotent(
-    session: Session, *, idempotency_key: str
-) -> IncreaseResult | None:
-    existing = _load_idempotent(
-        session, scope=INCREASE_SCOPE, key=idempotency_key
-    )
-    if existing is None:
-        return None
-    return IncreaseResult(
-        inventory_id=existing.inventory_id,
-        qty_on_hand=existing.qty_on_hand,
-        qty_frozen=existing.qty_frozen,
-        qty_available=existing.qty_available,
-        version=existing.version,
-        ledger_id=existing.ledger_id,
+def _replay(result: MutationResult) -> MutationResult:
+    return MutationResult(
+        inventory_id=result.inventory_id,
+        qty_on_hand=result.qty_on_hand,
+        qty_frozen=result.qty_frozen,
+        qty_available=result.qty_available,
+        version=result.version,
+        ledger_id=result.ledger_id,
         replayed=True,
     )
 
+
+def _get_balance(
+    session: Session,
+    *,
+    warehouse_id: int,
+    sku_id: int,
+    location_id: int,
+    create_if_missing: bool,
+) -> InventoryBalance | None:
+    balance = session.scalars(
+        select(InventoryBalance).where(
+            InventoryBalance.warehouse_id == warehouse_id,
+            InventoryBalance.sku_id == sku_id,
+            InventoryBalance.location_id == location_id,
+        )
+    ).first()
+    if balance is not None:
+        return balance
+    if not create_if_missing:
+        return None
+    balance = InventoryBalance(
+        warehouse_id=warehouse_id,
+        sku_id=sku_id,
+        location_id=location_id,
+        qty_on_hand=Decimal("0"),
+        qty_frozen=Decimal("0"),
+        version=0,
+    )
+    session.add(balance)
+    session.flush()
+    return balance
+
+
+def _mutation_result(balance: InventoryBalance, ledger_id: int) -> MutationResult:
+    return MutationResult(
+        inventory_id=balance.id,
+        qty_on_hand=_fmt(balance.qty_on_hand),
+        qty_frozen=_fmt(balance.qty_frozen),
+        qty_available=_fmt(_available(balance.qty_on_hand, balance.qty_frozen)),
+        version=balance.version,
+        ledger_id=ledger_id,
+        replayed=False,
+    )
+
+
+def _write_ledger(
+    session: Session,
+    *,
+    balance: InventoryBalance,
+    change_qty: Decimal,
+    ref_type: str,
+    ref_id: int,
+    ref_line_id: int | None,
+    ref_no: str,
+    operator_id: int,
+) -> InventoryLedger:
+    ledger = InventoryLedger(
+        warehouse_id=balance.warehouse_id,
+        sku_id=balance.sku_id,
+        location_id=balance.location_id,
+        change_qty=change_qty,
+        bal_qty=balance.qty_on_hand,
+        ref_type=ref_type,
+        ref_id=ref_id,
+        ref_line_id=ref_line_id,
+        ref_no=ref_no,
+        operator_id=operator_id,
+    )
+    session.add(ledger)
+    session.flush()
+    return ledger
+
+
+def load_increase_idempotent(
+    session: Session, *, idempotency_key: str
+) -> MutationResult | None:
+    existing = _load_idempotent(
+        session, scope=INCREASE_SCOPE, key=idempotency_key
+    )
+    return _replay(existing) if existing is not None else None
+
+
+def load_allocate_idempotent(
+    session: Session, *, idempotency_key: str
+) -> MutationResult | None:
+    existing = _load_idempotent(
+        session, scope=ALLOCATE_SCOPE, key=idempotency_key
+    )
+    return _replay(existing) if existing is not None else None
+
+
+def load_deduct_idempotent(
+    session: Session, *, idempotency_key: str
+) -> MutationResult | None:
+    existing = _load_idempotent(session, scope=DEDUCT_SCOPE, key=idempotency_key)
+    return _replay(existing) if existing is not None else None
+
+
+def load_release_idempotent(
+    session: Session, *, idempotency_key: str
+) -> MutationResult | None:
+    existing = _load_idempotent(
+        session, scope=RELEASE_SCOPE, key=idempotency_key
+    )
+    return _replay(existing) if existing is not None else None
+
+
+def load_json_idempotent(
+    session: Session, *, scope: str, idempotency_key: str
+) -> dict | None:
+    """供入/出库适配器复用同一幂等表（不直连基础设施模型）。"""
+    row = session.scalars(
+        select(IdempotencyRecord).where(
+            IdempotencyRecord.scope == scope,
+            IdempotencyRecord.idempotency_key == idempotency_key,
+        )
+    ).first()
+    if row is None:
+        return None
+    return json.loads(row.response_json)
+
+
+def store_json_idempotent(
+    session: Session, *, scope: str, idempotency_key: str, payload: dict
+) -> None:
+    session.add(
+        IdempotencyRecord(
+            scope=scope,
+            idempotency_key=idempotency_key,
+            response_json=json.dumps(payload),
+        )
+    )
 
 def increase(
     session: Session,
@@ -105,7 +245,7 @@ def increase(
     ref_no: str,
     operator_id: int,
     idempotency_key: str,
-) -> IncreaseResult:
+) -> MutationResult:
     """增加在库数量并写流水。同一幂等键重复调用返回首次结果。"""
     if qty <= 0:
         raise InventoryError("上架数量必须大于 0")
@@ -114,35 +254,16 @@ def increase(
         session, scope=INCREASE_SCOPE, key=idempotency_key
     )
     if existing is not None:
-        return IncreaseResult(
-            inventory_id=existing.inventory_id,
-            qty_on_hand=existing.qty_on_hand,
-            qty_frozen=existing.qty_frozen,
-            qty_available=existing.qty_available,
-            version=existing.version,
-            ledger_id=existing.ledger_id,
-            replayed=True,
-        )
+        return _replay(existing)
 
-    balance = session.scalars(
-        select(InventoryBalance).where(
-            InventoryBalance.warehouse_id == warehouse_id,
-            InventoryBalance.sku_id == sku_id,
-            InventoryBalance.location_id == location_id,
-        )
-    ).first()
-
-    if balance is None:
-        balance = InventoryBalance(
-            warehouse_id=warehouse_id,
-            sku_id=sku_id,
-            location_id=location_id,
-            qty_on_hand=Decimal("0"),
-            qty_frozen=Decimal("0"),
-            version=0,
-        )
-        session.add(balance)
-        session.flush()
+    balance = _get_balance(
+        session,
+        warehouse_id=warehouse_id,
+        sku_id=sku_id,
+        location_id=location_id,
+        create_if_missing=True,
+    )
+    assert balance is not None
 
     expected_version = balance.version
     new_on_hand = balance.qty_on_hand + qty
@@ -160,35 +281,230 @@ def increase(
         raise InventoryConflictError("库存版本冲突，请重试")
 
     session.refresh(balance)
-    ledger = InventoryLedger(
-        warehouse_id=warehouse_id,
-        sku_id=sku_id,
-        location_id=location_id,
+    ledger = _write_ledger(
+        session,
+        balance=balance,
         change_qty=qty,
-        bal_qty=balance.qty_on_hand,
         ref_type=ref_type,
         ref_id=ref_id,
         ref_line_id=ref_line_id,
         ref_no=ref_no,
         operator_id=operator_id,
     )
-    session.add(ledger)
-    session.flush()
-
-    increase_result = IncreaseResult(
-        inventory_id=balance.id,
-        qty_on_hand=_fmt(balance.qty_on_hand),
-        qty_frozen=_fmt(balance.qty_frozen),
-        qty_available=_fmt(_available(balance.qty_on_hand, balance.qty_frozen)),
-        version=balance.version,
-        ledger_id=ledger.id,
-        replayed=False,
-    )
+    mutation = _mutation_result(balance, ledger.id)
     _store_idempotent(
-        session, scope=INCREASE_SCOPE, key=idempotency_key, result=increase_result
+        session, scope=INCREASE_SCOPE, key=idempotency_key, result=mutation
     )
     session.flush()
-    return increase_result
+    return mutation
+
+
+def allocate(
+    session: Session,
+    *,
+    warehouse_id: int,
+    sku_id: int,
+    location_id: int,
+    qty: Decimal,
+    ref_type: str,
+    ref_id: int,
+    ref_line_id: int | None,
+    ref_no: str,
+    operator_id: int,
+    idempotency_key: str,
+) -> MutationResult:
+    """可用→冻结。可用不足整笔失败；在库不变。"""
+    if qty <= 0:
+        raise InventoryError("分配数量必须大于 0")
+
+    existing = _load_idempotent(
+        session, scope=ALLOCATE_SCOPE, key=idempotency_key
+    )
+    if existing is not None:
+        return _replay(existing)
+
+    balance = _get_balance(
+        session,
+        warehouse_id=warehouse_id,
+        sku_id=sku_id,
+        location_id=location_id,
+        create_if_missing=False,
+    )
+    if balance is None:
+        raise InventoryInsufficientError("库存可用不足，无法分配")
+
+    if _available(balance.qty_on_hand, balance.qty_frozen) < qty:
+        raise InventoryInsufficientError("库存可用不足，无法分配")
+
+    expected_version = balance.version
+    new_frozen = balance.qty_frozen + qty
+    result = session.execute(
+        update(InventoryBalance)
+        .where(
+            InventoryBalance.id == balance.id,
+            InventoryBalance.version == expected_version,
+            (InventoryBalance.qty_on_hand - InventoryBalance.qty_frozen) >= qty,
+        )
+        .values(qty_frozen=new_frozen, version=expected_version + 1)
+    )
+    if result.rowcount != 1:
+        raise InventoryConflictError("库存版本冲突，请重试")
+
+    session.refresh(balance)
+    ledger = _write_ledger(
+        session,
+        balance=balance,
+        change_qty=Decimal("0"),
+        ref_type=ref_type,
+        ref_id=ref_id,
+        ref_line_id=ref_line_id,
+        ref_no=ref_no,
+        operator_id=operator_id,
+    )
+    mutation = _mutation_result(balance, ledger.id)
+    _store_idempotent(
+        session, scope=ALLOCATE_SCOPE, key=idempotency_key, result=mutation
+    )
+    session.flush()
+    return mutation
+
+
+def deduct(
+    session: Session,
+    *,
+    warehouse_id: int,
+    sku_id: int,
+    location_id: int,
+    qty: Decimal,
+    ref_type: str,
+    ref_id: int,
+    ref_line_id: int | None,
+    ref_no: str,
+    operator_id: int,
+    idempotency_key: str,
+) -> MutationResult:
+    """实扣：冻结与在库同减。"""
+    if qty <= 0:
+        raise InventoryError("实扣数量必须大于 0")
+
+    existing = _load_idempotent(session, scope=DEDUCT_SCOPE, key=idempotency_key)
+    if existing is not None:
+        return _replay(existing)
+
+    balance = _get_balance(
+        session,
+        warehouse_id=warehouse_id,
+        sku_id=sku_id,
+        location_id=location_id,
+        create_if_missing=False,
+    )
+    if balance is None or balance.qty_frozen < qty or balance.qty_on_hand < qty:
+        raise InventoryInsufficientError("冻结数量不足，无法实扣")
+
+    expected_version = balance.version
+    result = session.execute(
+        update(InventoryBalance)
+        .where(
+            InventoryBalance.id == balance.id,
+            InventoryBalance.version == expected_version,
+            InventoryBalance.qty_frozen >= qty,
+            InventoryBalance.qty_on_hand >= qty,
+        )
+        .values(
+            qty_frozen=balance.qty_frozen - qty,
+            qty_on_hand=balance.qty_on_hand - qty,
+            version=expected_version + 1,
+        )
+    )
+    if result.rowcount != 1:
+        raise InventoryConflictError("库存版本冲突，请重试")
+
+    session.refresh(balance)
+    ledger = _write_ledger(
+        session,
+        balance=balance,
+        change_qty=-qty,
+        ref_type=ref_type,
+        ref_id=ref_id,
+        ref_line_id=ref_line_id,
+        ref_no=ref_no,
+        operator_id=operator_id,
+    )
+    mutation = _mutation_result(balance, ledger.id)
+    _store_idempotent(
+        session, scope=DEDUCT_SCOPE, key=idempotency_key, result=mutation
+    )
+    session.flush()
+    return mutation
+
+
+def release(
+    session: Session,
+    *,
+    warehouse_id: int,
+    sku_id: int,
+    location_id: int,
+    qty: Decimal,
+    ref_type: str,
+    ref_id: int,
+    ref_line_id: int | None,
+    ref_no: str,
+    operator_id: int,
+    idempotency_key: str,
+) -> MutationResult:
+    """释放预留：仅减冻结，在库不变。"""
+    if qty <= 0:
+        raise InventoryError("释放数量必须大于 0")
+
+    existing = _load_idempotent(
+        session, scope=RELEASE_SCOPE, key=idempotency_key
+    )
+    if existing is not None:
+        return _replay(existing)
+
+    balance = _get_balance(
+        session,
+        warehouse_id=warehouse_id,
+        sku_id=sku_id,
+        location_id=location_id,
+        create_if_missing=False,
+    )
+    if balance is None or balance.qty_frozen < qty:
+        raise InventoryInsufficientError("冻结数量不足，无法释放预留")
+
+    expected_version = balance.version
+    result = session.execute(
+        update(InventoryBalance)
+        .where(
+            InventoryBalance.id == balance.id,
+            InventoryBalance.version == expected_version,
+            InventoryBalance.qty_frozen >= qty,
+        )
+        .values(
+            qty_frozen=balance.qty_frozen - qty,
+            version=expected_version + 1,
+        )
+    )
+    if result.rowcount != 1:
+        raise InventoryConflictError("库存版本冲突，请重试")
+
+    session.refresh(balance)
+    ledger = _write_ledger(
+        session,
+        balance=balance,
+        change_qty=Decimal("0"),
+        ref_type=ref_type,
+        ref_id=ref_id,
+        ref_line_id=ref_line_id,
+        ref_no=ref_no,
+        operator_id=operator_id,
+    )
+    mutation = _mutation_result(balance, ledger.id)
+    _store_idempotent(
+        session, scope=RELEASE_SCOPE, key=idempotency_key, result=mutation
+    )
+    session.flush()
+    return mutation
 
 
 def list_balances(
