@@ -22,6 +22,18 @@ uv run uvicorn app.main:app --reload --app-dir .
 出库：`/api/v1/outbound-orders`（submit / approve / pick / cancel）；审核=分配、拣货=实扣、取消未拣=释放预留；approve/pick/cancel 必须带 `Idempotency-Key`。  
 库存查询：`GET /api/v1/inventories`、`GET /api/v1/inventories/ledgers`。
 
+### OpenAPI 交互文档
+
+非生产环境（`APP_ENV` 非 `prod`/`production`）可浏览器打开：
+
+| 入口 | 说明 |
+|---|---|
+| [`/docs`](http://127.0.0.1:8000/docs) | Swagger UI：Authorize 后可直接试调 |
+| [`/redoc`](http://127.0.0.1:8000/redoc) | ReDoc 只读浏览 |
+| [`/openapi.json`](http://127.0.0.1:8000/openapi.json) | OpenAPI 3 契约 |
+
+试调步骤：先 `POST /api/v1/auth/login` → 右上角 **Authorize** 填入 `access_token` → 再调受保护接口。生产环境上述三个入口均关闭（404）。
+
 ### Docker Compose 连接
 
 `docker-compose.yml` 中 MySQL：`wms` / `wms`，库名 `wms`，root 密码 `root`。  
