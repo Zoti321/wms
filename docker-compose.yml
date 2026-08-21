@@ -3,10 +3,10 @@ services:
     image: mysql:8.0
     container_name: wms-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: shana2002119
+      MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: wms
-      MYSQL_USER: shana
-      MYSQL_PASSWORD: shana2002119
+      MYSQL_USER: wms
+      MYSQL_PASSWORD: wms
       TZ: UTC
     ports:
       - "3306:3306"
