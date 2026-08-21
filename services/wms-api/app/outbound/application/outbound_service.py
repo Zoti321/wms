@@ -226,7 +226,7 @@ def approve_order(
             or location.warehouse_id != order.warehouse_id
         ):
             raise OutboundError("库位不可用或不属于本仓库")
-        if is_location_locked(location.id):
+        if is_location_locked(session, location.id):
             raise OutboundConflictError("库位已盘点锁定，不可分配")
         prepared.append((line, location, line.planned_qty))
 
@@ -305,7 +305,7 @@ def pick(
     if line.location_id is None or location_id != line.location_id:
         raise OutboundError("拣货库位须与审核分配库位一致")
 
-    if is_location_locked(location_id):
+    if is_location_locked(session, location_id):
         raise OutboundConflictError("库位已盘点锁定，不可拣货")
 
     try:

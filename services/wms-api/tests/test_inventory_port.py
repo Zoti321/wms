@@ -1,4 +1,4 @@
-"""库存记账主缝：increase / allocate / deduct / release → 余额 + 流水。"""
+"""库存记账主缝：increase / allocate / deduct / release / adjust → 余额 + 流水。"""
 
 from __future__ import annotations
 
@@ -386,3 +386,133 @@ def test_concurrent_allocate_at_most_one_succeeds(db_session) -> None:
     finally:
         s1.close()
         s2.close()
+
+
+def test_adjust_gain_increases_on_hand_and_writes_ledger(db_session) -> None:
+    warehouse_id, sku_id, location_id = _seed_catalog(db_session)
+    _increase(
+        db_session,
+        warehouse_id=warehouse_id,
+        sku_id=sku_id,
+        location_id=location_id,
+        qty=Decimal("10"),
+    )
+
+    result = inv.adjust(
+        db_session,
+        warehouse_id=warehouse_id,
+        sku_id=sku_id,
+        location_id=location_id,
+        qty=Decimal("2.000"),
+        ref_type=inv.REF_TYPE_STOCKTAKE,
+        ref_id=501,
+        ref_line_id=502,
+        ref_no="ST-GAIN",
+        operator_id=1,
+        idempotency_key=f"adj-gain-{uuid4().hex}",
+    )
+    db_session.commit()
+
+    assert result.qty_on_hand == "12.000"
+    assert result.qty_frozen == "0.000"
+    assert result.qty_available == "12.000"
+    ledgers = inv.list_ledgers(db_session, ref_type="STOCKTAKE", ref_line_id=502)
+    assert len(ledgers) == 1
+    assert ledgers[0]["change_qty"] == "2.000"
+    assert ledgers[0]["bal_qty"] == "12.000"
+    assert ledgers[0]["ref_id"] == 501
+
+
+def test_adjust_loss_decreases_on_hand(db_session) -> None:
+    warehouse_id, sku_id, location_id = _seed_catalog(db_session)
+    _increase(
+        db_session,
+        warehouse_id=warehouse_id,
+        sku_id=sku_id,
+        location_id=location_id,
+        qty=Decimal("10"),
+    )
+
+    result = inv.adjust(
+        db_session,
+        warehouse_id=warehouse_id,
+        sku_id=sku_id,
+        location_id=location_id,
+        qty=Decimal("-3.000"),
+        ref_type=inv.REF_TYPE_STOCKTAKE,
+        ref_id=601,
+        ref_line_id=602,
+        ref_no="ST-LOSS",
+        operator_id=1,
+        idempotency_key=f"adj-loss-{uuid4().hex}",
+    )
+    db_session.commit()
+
+    assert result.qty_on_hand == "7.000"
+    assert result.qty_available == "7.000"
+    ledgers = inv.list_ledgers(db_session, ref_line_id=602)
+    assert ledgers[0]["change_qty"] == "-3.000"
+    assert ledgers[0]["bal_qty"] == "7.000"
+
+
+def test_adjust_loss_rejects_when_on_hand_insufficient(db_session) -> None:
+    warehouse_id, sku_id, location_id = _seed_catalog(db_session)
+    _increase(
+        db_session,
+        warehouse_id=warehouse_id,
+        sku_id=sku_id,
+        location_id=location_id,
+        qty=Decimal("4"),
+    )
+
+    with pytest.raises(inv.InventoryInsufficientError):
+        inv.adjust(
+            db_session,
+            warehouse_id=warehouse_id,
+            sku_id=sku_id,
+            location_id=location_id,
+            qty=Decimal("-5.000"),
+            ref_type=inv.REF_TYPE_STOCKTAKE,
+            ref_id=1,
+            ref_line_id=1,
+            ref_no="ST-SHORT",
+            operator_id=1,
+            idempotency_key=f"adj-short-{uuid4().hex}",
+        )
+    db_session.rollback()
+    bal = inv.list_balances(db_session, warehouse_id=warehouse_id)[0]
+    assert bal["qty_on_hand"] == "4.000"
+
+
+def test_adjust_idempotent_replay_does_not_double_book(db_session) -> None:
+    warehouse_id, sku_id, location_id = _seed_catalog(db_session)
+    _increase(
+        db_session,
+        warehouse_id=warehouse_id,
+        sku_id=sku_id,
+        location_id=location_id,
+        qty=Decimal("10"),
+    )
+    key = f"adj-idem-{uuid4().hex}"
+    kwargs = dict(
+        warehouse_id=warehouse_id,
+        sku_id=sku_id,
+        location_id=location_id,
+        qty=Decimal("1.500"),
+        ref_type=inv.REF_TYPE_STOCKTAKE,
+        ref_id=701,
+        ref_line_id=702,
+        ref_no="ST-IDEM",
+        operator_id=1,
+        idempotency_key=key,
+    )
+    first = inv.adjust(db_session, **kwargs)
+    db_session.commit()
+    second = inv.adjust(db_session, **kwargs)
+    db_session.commit()
+
+    assert second.replayed is True
+    assert second.ledger_id == first.ledger_id
+    bal = inv.list_balances(db_session, warehouse_id=warehouse_id)[0]
+    assert bal["qty_on_hand"] == "11.500"
+    assert len(inv.list_ledgers(db_session, ref_line_id=702)) == 1

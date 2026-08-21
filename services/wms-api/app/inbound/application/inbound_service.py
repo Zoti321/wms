@@ -236,7 +236,7 @@ def putaway(
     ):
         raise InboundError("库位不可用或不属于本仓库")
 
-    if is_location_locked(location_id):
+    if is_location_locked(session, location_id):
         raise InboundConflictError("库位已盘点锁定，不可上架")
 
     # 库存记账成功才算上架成功；失败则整单事务回滚。
