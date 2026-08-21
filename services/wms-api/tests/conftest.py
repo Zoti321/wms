@@ -15,6 +15,18 @@ from sqlalchemy.exc import OperationalError
 # 默认与 .env.example 一致；隔离库可通过 TEST_DATABASE_URL 指定。
 DEFAULT_TEST_URL = "mysql+pymysql://wms:wms@127.0.0.1:3306/wms?charset=utf8mb4"
 
+SEED_USERNAME = "admin"
+SEED_PASSWORD = "Admin@123456"
+
+# 主数据表（不含 M0 已有 warehouse 骨架以外的平台表）；测试前清空以保证隔离。
+_CATALOG_TABLES = (
+    "location",
+    "sku",
+    "supplier",
+    "customer",
+    "warehouse",
+)
+
 
 def _database_url() -> str:
     return os.environ.get("TEST_DATABASE_URL") or DEFAULT_TEST_URL
@@ -60,8 +72,27 @@ def client(migrated_database: str) -> Generator[TestClient, None, None]:
     get_settings.cache_clear()
     reset_engine()
 
+    engine = create_engine(migrated_database, pool_pre_ping=True)
+    with engine.begin() as conn:
+        conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
+        for table in _CATALOG_TABLES:
+            conn.execute(text(f"TRUNCATE TABLE `{table}`"))
+        conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
+    engine.dispose()
+
     with TestClient(app) as test_client:
         yield test_client
 
     get_settings.cache_clear()
     reset_engine()
+
+
+@pytest.fixture()
+def auth_headers(client: TestClient) -> dict[str, str]:
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"username": SEED_USERNAME, "password": SEED_PASSWORD},
+    )
+    assert login.status_code == 200, login.text
+    token = login.json()["data"]["access_token"]
+    return {"Authorization": f"Bearer {token}"}

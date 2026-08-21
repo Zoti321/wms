@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 # 确保 Alembic / 元数据能发现模型
 import app.catalog.infrastructure.models  # noqa: F401
 import app.platform.infrastructure.models  # noqa: F401
+from app.catalog.api.router import router as catalog_router
 from app.platform.api.auth import router as auth_router
 from app.shared.config import get_settings
 
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     application.include_router(auth_router, prefix="/api/v1")
+    application.include_router(catalog_router, prefix="/api/v1")
     return application
 
 

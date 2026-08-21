@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-SEED_USERNAME = "admin"
-SEED_PASSWORD = "Admin@123456"
+from tests.conftest import SEED_PASSWORD, SEED_USERNAME
 
 
 def test_health_does_not_require_auth(client) -> None:
