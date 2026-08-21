@@ -1,0 +1,43 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: wms-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: shana2002119
+      MYSQL_DATABASE: wms
+      MYSQL_USER: shana
+      MYSQL_PASSWORD: shana2002119
+      TZ: UTC
+    ports:
+      - "3306:3306"
+    volumes:
+      - wms_mysql_data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+00:00
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: ./services/wms-api
+      dockerfile: Dockerfile
+    container_name: wms-api
+    env_file:
+      - ./services/wms-api/.env
+    environment:
+      DATABASE_URL: mysql+pymysql://wms:wms@mysql:3306/wms?charset=utf8mb4
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    profiles:
+      - full
+
+volumes:
+  wms_mysql_data:

@@ -45,7 +45,7 @@
     <a class="card-link" href="requirements.html">
       <div class="num">02 · REQUIREMENTS</div>
       <h2>需求文档</h2>
-      <p>目标、角色、功能/非功能、业务规则、用例与验收标准。</p>
+      <p>目标、角色、功能/非功能、业务规则、用例与验收标准——已按上下文拆成 Markdown 模块。</p>
     </a>
     <a class="card-link" href="development.html">
       <div class="num">03 · DEVELOPMENT</div>
@@ -58,7 +58,7 @@
     <article class="doc" id="howto">
       <div class="doc-meta">
         <span class="badge">建设路径</span>
-        <span>版本 1.1 · 2026-08-20</span>
+        <span>版本 1.2 · 2026-08-20</span>
       </div>
       <h1>做一个仓库管理系统该怎么做</h1>
       <p class="lead">先钉死领域语言与上下文边界，再写需求与落码。核心问题是：「货从哪来、放哪、怎么出、谁能改账、怎么对账」。</p>
@@ -110,13 +110,13 @@
       <p>全程单据驱动：改账只发生在库存上下文，并留下关联单据行的库存流水。</p>
 
       <div class="callout">
-        <strong>文档约定：</strong>术语以领域模型为准；技术栈示例为 Vue 3 + 小程序 + Spring Boot + PostgreSQL，可替换实现，但上下文边界与软分配/盘点锁建议保持不变。
+        <strong>文档约定：</strong>术语以领域模型为准；技术栈为 Vue 3 + 小程序 + FastAPI（uv / uvicorn / PyMySQL）+ MySQL 8.0。上下文边界与软分配/盘点锁为固定设计约束。
       </div>
 
       <h2>相关文档</h2>
       <ul>
         <li><a href="domain.html">《领域模型》</a> — 上下文与统一语言</li>
-        <li><a href="requirements.html">《需求规格说明书》</a> — 做什么、如何验收</li>
+        <li><a href="requirements.html">《需求文档》索引</a> — 模块化 SRS；正文在 <code>docs/requirements/*.md</code></li>
         <li><a href="development.html">《开发设计说明书》</a> — 怎么拆、怎么部署</li>
       </ul>
     </article>

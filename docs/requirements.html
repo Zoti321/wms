@@ -25,263 +25,77 @@
     </div>
   </header>
 
-  <div class="layout">
-    <aside class="toc">
-      <h2>目录</h2>
-      <ol>
-        <li><a href="#s1">引言</a></li>
-        <li><a href="#s2">干系人与角色</a></li>
-        <li><a href="#s3">功能需求</a></li>
-        <li><a href="#s4">非功能需求</a></li>
-        <li><a href="#s5">业务规则</a></li>
-        <li><a href="#s6">用户故事</a></li>
-        <li><a href="#s7">数据字典要点</a></li>
-        <li><a href="#s8">验收标准</a></li>
-      </ol>
-    </aside>
-
+  <div class="layout solo">
     <article class="doc">
       <div class="doc-meta">
-        <span class="badge">SRS · 需求规格说明书</span>
+        <span class="badge">SRS · 索引</span>
         <span>文档编号 WMS-SRS-001</span>
-        <span>版本 1.1 · 2026-08-20</span>
-        <span class="badge amber">对齐领域模型</span>
+        <span>版本 1.2 · 2026-08-21</span>
+        <span class="badge amber">Markdown 为权威</span>
       </div>
 
-      <h1>仓脉 WMS 需求规格说明书</h1>
-      <p class="lead">本文档定义仓库管理系统的业务目标、功能范围、角色权限、业务规则与验收标准。术语与上下文边界以 <a href="domain.html">领域模型</a> 为准；实现路径见 <a href="development.html">开发文档</a>。</p>
-
-      <h2 id="s1">1. 引言</h2>
-      <h3>1.1 项目背景</h3>
-      <p>企业仓库依赖表格或口头交接时，易出现账实不符、库位混乱、出库差错与追溯困难。需要一套以单据驱动的数字化 WMS，统一管理入库、上架、出库、盘点与库存查询。</p>
-
-      <h3>1.2 项目目标</h3>
-      <ul>
-        <li>库存账实一致率 ≥ 99.5%（按月盘点口径）</li>
-        <li>出入库单据全程可追溯（操作人、时间、数量、库位、库存流水）</li>
-        <li>支持低库存预警，减少缺货与积压</li>
-        <li>MVP 在 8～12 周内可上线「单仓启用」的核心流程（模型仍预留多仓）</li>
-      </ul>
-
-      <h3>1.3 范围说明</h3>
-      <table>
-        <thead>
-          <tr><th>范围内（MVP）</th><th>范围外（二期）</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>仓库/商品/供应商/库位主数据；入库、出库（审核分配 + 拣货实扣）、库存查询与流水；盘点锁 + 简单盘点；角色权限与操作日志；基础报表与库存预警</td>
-            <td>PDA 扫码、波次拣货、保质期 FEFO、多仓调拨自动化、AGV/立库、与外部 ERP 深度双向同步、红冲单细化</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <h2 id="s2">2. 干系人与角色</h2>
-      <p>角色与鉴权属平台支撑能力，不进入领域上下文；下表描述业务职责与典型权限。</p>
-      <table>
-        <thead>
-          <tr><th>角色</th><th>职责</th><th>典型权限</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>系统管理员</td>
-            <td>账号、角色、基础配置</td>
-            <td>用户管理、字典配置、全模块只读/授权</td>
-          </tr>
-          <tr>
-            <td>仓库主管</td>
-            <td>审核单据、盘点、报表、异常处理</td>
-            <td>审核入出库、发起盘点、查看全仓报表</td>
-          </tr>
-          <tr>
-            <td>仓管员</td>
-            <td>执行入库上架、出库拣货</td>
-            <td>创建/执行入出库单</td>
-          </tr>
-          <tr>
-            <td>采购/业务只读</td>
-            <td>查询库存与单据进度</td>
-            <td>库存查询、单据查询（无改库存权限）</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <h2 id="s3">3. 功能需求</h2>
-
-      <h3>3.1 主数据（catalog）</h3>
-      <ul>
-        <li><strong>仓库</strong>：一等概念；单据、库位、库存余额均归属仓库。MVP 只启用一个仓库。</li>
-        <li><strong>商品（SKU）</strong>：编码、名称、规格、单位、条码、安全库存、启用状态；主数据可跨仓库共享，数量按仓库分隔。</li>
-        <li><strong>库区/库位</strong>：仓库 → 区 → 排 → 位；库位状态含空闲 / 占用 / 冻结（空间资源语义，勿与「冻结数量」混淆）。</li>
-        <li><strong>供应商/客户</strong>（轻量）：编码、名称、联系人，用于单据关联。</li>
-      </ul>
-
-      <h3>3.2 入库管理（inbound）</h3>
-      <ul>
-        <li>支持创建入库单（采购入库 / 退货入库 / 其他入库），单据归属仓库。</li>
-        <li>单据状态：草稿 → 待审核 → 已审核 → 上架中 → 已完成 / 已取消。</li>
-        <li>按<strong>入库单行</strong>上架：指定库位与本次数量；支持部分上架；每次上架产生<strong>上架记录</strong>，并请求库存记账写流水。</li>
-        <li>库存增加以库存上下文记账成功为准；盘点锁覆盖的库位不可上架。</li>
-        <li>全部行累计上架达标后单据自动已完成。已上架数量不可靠「取消」抹掉。</li>
-      </ul>
-
-      <h3>3.3 出库管理（outbound）</h3>
-      <ul>
-        <li>支持销售出库 / 领料出库 / 其他出库，单据归属仓库。</li>
-        <li>单据状态：草稿 → 待审核 → 已审核 → 拣货中 → 已完成 / 已取消。</li>
-        <li><strong>审核 = 分配（预留）</strong>：按行将可用数量转为冻结数量；不足则拒绝或按策略拆单。</li>
-        <li><strong>拣货确认 = 预留实扣</strong>：按行从指定库位实扣；支持部分拣货；每次拣货产生<strong>拣货记录</strong>与对应库存流水。</li>
-        <li><strong>出库取消</strong>：未拣部分先<strong>释放预留</strong>；已实扣数量不可抹账，纠错走退货入库（或二期冲销）。</li>
-        <li>盘点锁覆盖的库位不可拣货。</li>
-      </ul>
-
-      <h3>3.4 库存（inventory）</h3>
-      <ul>
-        <li>库存是数量账的<strong>唯一所有者</strong>；其它上下文不得直接改账。</li>
-        <li>余额维度：仓库 + SKU + 库位（MVP 不强制批次）。</li>
-        <li>数量口径：在库数量、冻结数量、可用数量（= 在库 − 冻结）。</li>
-        <li>提供库位库存查询、按 SKU 汇总、库存流水（须关联业务单据与单据行）。</li>
-        <li><strong>库存预警</strong>：某仓某 SKU 汇总可用量低于安全库存时生成，回升后解除；展示层只读。</li>
-      </ul>
-
-      <h3>3.5 盘点管理（stocktake）</h3>
-      <ul>
-        <li>创建盘点单（按某仓库的库区或全仓）。</li>
-        <li>盘点生效后对覆盖库位加<strong>盘点锁</strong>：禁止上架与出库（与出库「冻结数量」预留不是同一机制）。</li>
-        <li>录入实盘数量；审核前差异不落账。</li>
-        <li>主管审核后请求库存一次性盘盈/盘亏调整、写流水并释放盘点锁。</li>
-      </ul>
-
-      <h3>3.6 报表与审计</h3>
-      <ul>
-        <li>日报：入出库汇总、当前库存 SKU 数、预警数。</li>
-        <li>出入库明细导出（CSV）。</li>
-        <li><strong>操作日志</strong>（平台审计）：登录、单据审核等动作轨迹；与库存流水区分，不可互相替代。</li>
-      </ul>
-
-      <h3>3.7 系统管理（平台）</h3>
-      <ul>
-        <li>用户、角色、菜单/接口级权限。</li>
-        <li>登录认证（账号密码）；密码加密存储。</li>
-        <li>基础字典：单位、单据类型、取消原因等。</li>
-      </ul>
-
-      <h2 id="s4">4. 非功能需求</h2>
-      <table>
-        <thead>
-          <tr><th>类别</th><th>要求</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>性能</td><td>常规查询 P95 &lt; 500ms；单仓 SKU ≤ 5 万、日单据 ≤ 2000 时系统流畅可用</td></tr>
-          <tr><td>并发</td><td>分配与实扣需防超卖（乐观锁/版本号或库存行锁）</td></tr>
-          <tr><td>可用性</td><td>工作日 8:00–22:00 可用；计划内维护需提前通知</td></tr>
-          <tr><td>安全</td><td>HTTPS；按角色鉴权；敏感操作写操作日志；防越权</td></tr>
-          <tr><td>可维护</td><td>配置与代码分离；关键错误可追踪；支持数据备份恢复</td></tr>
-          <tr><td>兼容</td><td>Chrome / Edge 近两个大版本；分辨率 ≥ 1280 宽可用；小程序端另定基础库下限</td></tr>
-        </tbody>
-      </table>
-
-      <h2 id="s5">5. 关键业务规则</h2>
-      <ol>
-        <li>任何库存增减必须经库存上下文记账，并关联业务单据与单据行写<strong>库存流水</strong>；禁止无流水改账。</li>
-        <li>出库审核只做<strong>分配（预留）</strong>，拣货确认才<strong>实扣</strong>；不存在「审核只校验、中间不预留」的路径。</li>
-        <li>可用数量 = 在库数量 − 冻结数量；新的出库分配只能占用可用数量。</li>
-        <li>同一 SKU 可分布多库位；MVP 出库/上架由人工指定库位。</li>
-        <li>已完成 / 已取消单据不可再编辑；已实扣纠错不走「取消抹账」，而走退货入库或二期冲销。</li>
-        <li>盘点锁期间，被锁库位禁止上架与出库；实盘差异仅在审核通过后落账。</li>
-        <li>删除主数据采用「停用」；有历史单据的 SKU 不可物理删。</li>
-      </ol>
-
-      <div class="callout warning">
-        <strong>风险提示：</strong>并发出库与盘点同时进行时，必须以<strong>盘点锁</strong>阻断被盘库位的上架/拣货，否则易产生账实偏差。盘点锁 ≠ 冻结数量。
-      </div>
-
-      <h2 id="s6">6. 用户故事（节选）</h2>
-      <table>
-        <thead>
-          <tr><th>编号</th><th>作为…</th><th>我希望…</th><th>以便…</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>US-01</td>
-            <td>仓管员</td>
-            <td>创建采购入库单并按行多次上架到指定库位</td>
-            <td>货物分批入账且流水可追溯</td>
-          </tr>
-          <tr>
-            <td>US-02</td>
-            <td>仓库主管</td>
-            <td>审核出库单完成分配预留</td>
-            <td>后续拣货不被其它单据抢走库存</td>
-          </tr>
-          <tr>
-            <td>US-03</td>
-            <td>仓管员</td>
-            <td>按出库单从指定库位部分拣货确认</td>
-            <td>正确实扣并完成发货</td>
-          </tr>
-          <tr>
-            <td>US-04</td>
-            <td>仓库主管</td>
-            <td>取消已部分拣货出库单的未拣部分</td>
-            <td>释放预留且不抹掉已出库数量</td>
-          </tr>
-          <tr>
-            <td>US-05</td>
-            <td>仓库主管</td>
-            <td>发起盘点并在锁库位后审核盈亏</td>
-            <td>定期校正账实且盘中无并行进出</td>
-          </tr>
-          <tr>
-            <td>US-06</td>
-            <td>业务人员</td>
-            <td>按仓库 + SKU 查询可用库存与库位分布</td>
-            <td>承接订单前确认有货</td>
-          </tr>
-          <tr>
-            <td>US-07</td>
-            <td>管理员</td>
-            <td>配置角色菜单权限</td>
-            <td>最小权限原则落地</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <h2 id="s7">7. 数据字典要点</h2>
-      <table>
-        <thead>
-          <tr><th>实体</th><th>关键字段</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>仓库 Warehouse</td><td>warehouse_code, name, status</td></tr>
-          <tr><td>商品 SKU</td><td>sku_code, name, unit, barcode, safety_stock, status</td></tr>
-          <tr><td>库位 Location</td><td>warehouse_id, location_code, zone, aisle, bin, status, capacity</td></tr>
-          <tr><td>库存 Inventory</td><td>warehouse_id, sku_id, location_id, qty_on_hand, qty_frozen, version（可用量 = 在库 − 冻结）</td></tr>
-          <tr><td>入库单 / 行</td><td>warehouse_id, order_no, type, status；行含 sku_id, plan_qty, putaway_qty</td></tr>
-          <tr><td>出库单 / 行</td><td>warehouse_id, order_no, type, status；行含 sku_id, plan_qty, allocated_qty, picked_qty</td></tr>
-          <tr><td>库存流水 Ledger</td><td>warehouse_id, sku_id, location_id, change_qty, bal_qty, ref_type, ref_id, ref_line_id, operator_id, created_at</td></tr>
-        </tbody>
-      </table>
-
-      <h2 id="s8">8. 验收标准（MVP）</h2>
-      <ul>
-        <li>可完成：建仓库/SKU/库位 → 入库上架 → 库存可见 → 出库分配 → 拣货实扣 → 流水可按单据行查询</li>
-        <li>库存不足时出库审核（分配）被正确拒绝，且无负可用/负在库</li>
-        <li>两人几乎同时分配同一库存时，不会超卖（压测用例通过）</li>
-        <li>部分拣货后取消未拣部分：预留释放正确，已实扣数量不变</li>
-        <li>盘点锁期间被锁库位无法上架/拣货；盈亏审核后库存与流水一致</li>
-        <li>低于安全库存产生预警，回升后解除</li>
-        <li>无权限用户无法审核单据；关键操作写入操作日志（与流水可分别查询）</li>
-      </ul>
+      <h1>仓脉 WMS 需求文档</h1>
+      <p class="lead">需求已按限界上下文拆成 Markdown 模块，便于人读目录、Agent 按任务局部加载。术语以 <a href="domain.html">领域模型</a> 为准；本页只做导航。</p>
 
       <div class="callout">
-        术语与上下文：<a href="domain.html">领域模型</a>。实现：<a href="development.html">开发设计说明书</a>。
+        <strong>权威正文：</strong><code>docs/requirements/*.md</code>。地图见 <a href="requirements/README.md">requirements/README.md</a>。
+      </div>
+
+      <h2>模块</h2>
+      <div class="grid-2">
+        <a class="card-link" href="requirements/overview.md">
+          <div class="num">00 · OVERVIEW</div>
+          <h2>总览</h2>
+          <p>背景目标、MVP 范围、角色、非功能、全局业务规则。</p>
+        </a>
+        <a class="card-link" href="requirements/catalog.md">
+          <div class="num">01 · CATALOG</div>
+          <h2>主数据</h2>
+          <p>仓库、SKU、库位、供应商/客户。</p>
+        </a>
+        <a class="card-link" href="requirements/inventory.md">
+          <div class="num">02 · INVENTORY</div>
+          <h2>库存</h2>
+          <p>唯一账本、流水、预警、分配/实扣记账。</p>
+        </a>
+        <a class="card-link" href="requirements/inbound.md">
+          <div class="num">03 · INBOUND</div>
+          <h2>入库</h2>
+          <p>入库单、部分上架、上架记录。</p>
+        </a>
+        <a class="card-link" href="requirements/outbound.md">
+          <div class="num">04 · OUTBOUND</div>
+          <h2>出库</h2>
+          <p>分配预留、拣货实扣、取消释放。</p>
+        </a>
+        <a class="card-link" href="requirements/stocktake.md">
+          <div class="num">05 · STOCKTAKE</div>
+          <h2>盘点</h2>
+          <p>盘点锁、实盘、盈亏审核。</p>
+        </a>
+        <a class="card-link" href="requirements/platform.md">
+          <div class="num">06 · PLATFORM</div>
+          <h2>平台</h2>
+          <p>登录鉴权、角色权限、操作日志、字典。</p>
+        </a>
+      </div>
+
+      <h2>Agent 怎么用</h2>
+      <ol class="steps">
+        <li>打开 <a href="requirements/README.md">README 地图</a>，按任务选模块。</li>
+        <li>读该模块 MD + 对应 <code>src/&lt;ctx&gt;/CONTEXT.md</code>。</li>
+        <li>涉及跨模块硬约束时加读 <a href="requirements/overview.md">overview.md</a>。</li>
+        <li>表结构 / API 以 <a href="development.html">开发文档</a> 为准，需求模块不重复。</li>
+      </ol>
+
+      <div class="callout">
+        相关：<a href="domain.html">领域模型</a> · <a href="development.html">开发文档</a> · <a href="index.html">总览</a>
       </div>
     </article>
   </div>
 
   <footer class="site-footer">
-    仓脉 WMS · 需求文档 WMS-SRS-001 v1.1 · <a href="index.html">返回总览</a>
+    仓脉 WMS · 需求索引 v1.2 · <a href="index.html">返回总览</a>
   </footer>
 </body>
 </html>

@@ -47,19 +47,19 @@
       <div class="doc-meta">
         <span class="badge">SDD · 开发设计说明书</span>
         <span>文档编号 WMS-SDD-001</span>
-        <span>版本 1.1 · 2026-08-20</span>
-        <span class="badge amber">对齐 SRS / 领域模型 1.1</span>
+        <span>版本 1.2 · 2026-08-20</span>
+        <span class="badge amber">后端：FastAPI + MySQL 8.0 + uv</span>
       </div>
 
       <h1>仓脉 WMS 开发设计说明书</h1>
-      <p class="lead">实现路径：技术栈、限界上下文落码、数据模型、API、状态机与里程碑。业务规则见 <a href="requirements.html">需求文档</a>；术语见 <a href="domain.html">领域模型</a>。</p>
+      <p class="lead">实现路径：技术栈、限界上下文落码、数据模型、API、状态机与里程碑。业务规则见 <a href="requirements.html">需求索引</a>（正文 <code>docs/requirements/*.md</code>）；术语见 <a href="domain.html">领域模型</a>。</p>
 
       <h2 id="d1">1. 概述与设计原则</h2>
       <ul>
         <li><strong>库存唯一账本</strong>：只有 inventory 上下文改数量并写 ledger；inbound / outbound / stocktake 发请求，以记账成功为准。</li>
         <li><strong>出库软分配</strong>：审核 = 可用→冻结；拣货 = 预留实扣；取消未拣 = 释放预留。</li>
         <li><strong>盘点锁</strong>：锁库位作业，不靠把数量记入冻结数量实现。</li>
-        <li><strong>幂等与防超卖</strong>：分配/实扣使用库存行 <code>version</code> 乐观锁；重复提交用业务单号 + 执行幂等键。</li>
+        <li><strong>幂等与防超卖</strong>：分配/实扣使用库存行 <code>version</code> 乐观锁；重复提交用业务单号 + 执行幂等键（MVP 幂等记录存 MySQL，不上 Redis）。</li>
         <li><strong>仓库一等</strong>：表与 API 均带 <code>warehouse_id</code>；MVP 只启用一个仓库。</li>
         <li><strong>交付面 ≠ 上下文</strong>：后端、网页后台、小程序是适配器；领域按 catalog / inventory / inbound / outbound / stocktake 分包。</li>
       </ul>
@@ -72,15 +72,16 @@
         <tbody>
           <tr><td>网页后台</td><td>Vue 3 + TypeScript + Vite + Element Plus</td><td>管理端；路由权限 + 表格/表单为主</td></tr>
           <tr><td>小程序</td><td>微信小程序原生或 uni-app</td><td>仓管员上架/拣货作业面；调同一套 API</td></tr>
-          <tr><td>后端</td><td>Java 17 + Spring Boot 3</td><td>REST API；Spring Security + JWT</td></tr>
-          <tr><td>持久化</td><td>PostgreSQL 15+ + Flyway</td><td>事务可靠；迁移脚本版本化</td></tr>
-          <tr><td>缓存（可选）</td><td>Redis</td><td>会话、热点查询；库存真相仍在 DB 事务内</td></tr>
-          <tr><td>文档</td><td>OpenAPI 3（springdoc）</td><td>前后端/小程序契约</td></tr>
-          <tr><td>工程</td><td>Monorepo（pnpm / Gradle 复合构建等）</td><td>packages 按交付面与领域上下文组织</td></tr>
-          <tr><td>部署</td><td>Docker Compose</td><td>api + db（+ redis）本地/测试环境</td></tr>
+          <tr><td>后端</td><td>Python 3.12+ + FastAPI + uvicorn</td><td>REST；仅 Access JWT；密码 bcrypt；配置 <strong>pydantic-settings</strong> + <code>.env</code>；CORS 白名单；包管理 uv</td></tr>
+          <tr><td>持久化</td><td>MySQL 8.0（InnoDB）+ SQLAlchemy 2（同步 Session）+ PyMySQL + Alembic</td><td>时间统一 <strong>UTC</strong>；库存写路径明确事务；本地可用 <code>mysql:8.0</code></td></tr>
+          <tr><td>缓存 / 队列</td><td>MVP <strong>不上</strong> Redis / Celery</td><td>幂等键与业务数据均落 MySQL；库存预警在余额变更后同步判定</td></tr>
+          <tr><td>测试</td><td>pytest + httpx</td><td>API 与库存分配/实扣等集成测试；测试库可回滚或独立库</td></tr>
+          <tr><td>文档</td><td>OpenAPI 3（FastAPI 自动生成）</td><td>前后端/小程序契约</td></tr>
+          <tr><td>工程</td><td>Monorepo（前端 pnpm；后端 API 用 uv）</td><td>packages 按交付面与领域上下文组织</td></tr>
+          <tr><td>部署</td><td>Docker Compose + uvicorn</td><td>MVP：api + mysql；生产可再评估多 worker</td></tr>
         </tbody>
       </table>
-      <p>可替换实现语言，但<strong>库存事务、软分配、流水表、盘点锁</strong>建议保持一致。</p>
+      <p>后端选型已定为 <strong>FastAPI + MySQL 8.0 + uv</strong>：驱动 PyMySQL，ORM 写路径同步 Session，密码 bcrypt，进程 uvicorn，配置 pydantic-settings，时间 UTC，测试 pytest + httpx。MVP 不上 Redis。预警在库存记账成功后同步判定。权衡见 <a href="adr/0001-fastapi-sync-mysql-no-redis.md">ADR-0001</a>。<strong>库存事务、软分配、流水表、盘点锁</strong>为不可妥协的设计约束。</p>
 
       <h2 id="d3">3. 系统架构</h2>
       <pre>┌──────────────┐  ┌──────────────┐
@@ -91,7 +92,7 @@
        └────────┬────────┘
                 ▼
        ┌────────────────────┐
-       │  wms-api (Boot)    │
+       │  wms-api (FastAPI) │
        │  Auth · ACL · API  │  ← 平台：身份 / 操作日志
        └─────────┬──────────┘
                  │
@@ -103,14 +104,14 @@
                        ▼
                   inventory   ← 唯一改账 + ledger + 预警
                        ▼
-                  PostgreSQL</pre>
+                  MySQL 8.0 (InnoDB)</pre>
 
       <h3>分层约定</h3>
       <ul>
         <li><strong>Controller</strong>：参数校验、鉴权、DTO，不含库存规则</li>
         <li><strong>Application</strong>：用例编排（如 <code>approveOutbound</code> → 调用库存分配）</li>
         <li><strong>Domain（按上下文）</strong>：状态机、分配/实扣/盘点锁策略</li>
-        <li><strong>Infrastructure</strong>：仓储、JWT、审计日志持久化</li>
+        <li><strong>Infrastructure</strong>：SQLAlchemy 同步仓储、JWT（Access）、操作日志持久化</li>
       </ul>
 
       <h2 id="d4">4. 模块划分</h2>
@@ -147,56 +148,57 @@
 
       <h3>5.2 关键表（简化 DDL 示意）</h3>
       <pre>CREATE TABLE warehouse (
-  id              BIGSERIAL PRIMARY KEY,
+  id              BIGINT PRIMARY KEY AUTO_INCREMENT,
   warehouse_code  VARCHAR(64) NOT NULL UNIQUE,
   name            VARCHAR(200) NOT NULL,
-  status          SMALLINT NOT NULL DEFAULT 1
-);
+  status          TINYINT NOT NULL DEFAULT 1
+) ENGINE=InnoDB;
 
 CREATE TABLE sku (
-  id            BIGSERIAL PRIMARY KEY,
+  id            BIGINT PRIMARY KEY AUTO_INCREMENT,
   sku_code      VARCHAR(64) NOT NULL UNIQUE,
   name          VARCHAR(200) NOT NULL,
   unit          VARCHAR(16) NOT NULL,
-  safety_stock  NUMERIC(18,3) NOT NULL DEFAULT 0,
-  status        SMALLINT NOT NULL DEFAULT 1
-);
+  safety_stock  DECIMAL(18,3) NOT NULL DEFAULT 0,
+  status        TINYINT NOT NULL DEFAULT 1
+) ENGINE=InnoDB;
 
 CREATE TABLE location (
-  id            BIGSERIAL PRIMARY KEY,
-  warehouse_id  BIGINT NOT NULL REFERENCES warehouse(id),
+  id            BIGINT PRIMARY KEY AUTO_INCREMENT,
+  warehouse_id  BIGINT NOT NULL,
   location_code VARCHAR(64) NOT NULL,
   zone          VARCHAR(32),
-  status        SMALLINT NOT NULL DEFAULT 1, -- 含盘点锁等作业状态
-  UNIQUE (warehouse_id, location_code)
-);
+  status        TINYINT NOT NULL DEFAULT 1, -- 含盘点锁等作业状态
+  UNIQUE (warehouse_id, location_code),
+  CONSTRAINT fk_location_wh FOREIGN KEY (warehouse_id) REFERENCES warehouse(id)
+) ENGINE=InnoDB;
 
 CREATE TABLE inventory (
-  id            BIGSERIAL PRIMARY KEY,
-  warehouse_id  BIGINT NOT NULL REFERENCES warehouse(id),
-  sku_id        BIGINT NOT NULL REFERENCES sku(id),
-  location_id   BIGINT NOT NULL REFERENCES location(id),
-  qty_on_hand   NUMERIC(18,3) NOT NULL DEFAULT 0,
-  qty_frozen    NUMERIC(18,3) NOT NULL DEFAULT 0,
-  version       BIGINT NOT NULL DEFAULT 0,
-  UNIQUE (warehouse_id, sku_id, location_id)
-  -- qty_available = qty_on_hand - qty_frozen（查询计算或生成列）
-);
-
-CREATE TABLE inventory_ledger (
-  id            BIGSERIAL PRIMARY KEY,
+  id            BIGINT PRIMARY KEY AUTO_INCREMENT,
   warehouse_id  BIGINT NOT NULL,
   sku_id        BIGINT NOT NULL,
   location_id   BIGINT NOT NULL,
-  change_qty    NUMERIC(18,3) NOT NULL,
-  bal_qty       NUMERIC(18,3) NOT NULL,
+  qty_on_hand   DECIMAL(18,3) NOT NULL DEFAULT 0,
+  qty_frozen    DECIMAL(18,3) NOT NULL DEFAULT 0,
+  version       BIGINT NOT NULL DEFAULT 0,
+  UNIQUE (warehouse_id, sku_id, location_id)
+  -- qty_available = qty_on_hand - qty_frozen（查询计算或生成列）
+) ENGINE=InnoDB;
+
+CREATE TABLE inventory_ledger (
+  id            BIGINT PRIMARY KEY AUTO_INCREMENT,
+  warehouse_id  BIGINT NOT NULL,
+  sku_id        BIGINT NOT NULL,
+  location_id   BIGINT NOT NULL,
+  change_qty    DECIMAL(18,3) NOT NULL,
+  bal_qty       DECIMAL(18,3) NOT NULL,
   ref_type      VARCHAR(32) NOT NULL,  -- PUTAWAY / ALLOCATE / PICK / RELEASE / STOCKTAKE
   ref_id        BIGINT NOT NULL,
-  ref_line_id   BIGINT,
+  ref_line_id   BIGINT NULL,
   ref_no        VARCHAR(64) NOT NULL,
   operator_id   BIGINT NOT NULL,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
-);</pre>
+  created_at    DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB;</pre>
 
       <div class="callout">
         分配伪代码：在事务内 <code>UPDATE inventory SET qty_frozen = qty_frozen + :q, version = version + 1 WHERE id = :id AND version = :ver AND (qty_on_hand - qty_frozen) &gt;= :q</code>。实扣：同步减少 <code>qty_frozen</code> 与 <code>qty_on_hand</code>。释放预留：仅减少 <code>qty_frozen</code>。
@@ -262,14 +264,19 @@ CREATE TABLE inventory_ledger (
 │   ├── web-admin/           # Vue3 网页后台
 │   └── mini-program/        # 小程序作业端
 ├── services/
-│   └── wms-api/             # Spring Boot
-│       ├── platform/        # iam + 操作日志
-│       ├── catalog/
-│       ├── inventory/
-│       ├── inbound/
-│       ├── outbound/
-│       ├── stocktake/
-│       └── resources/db/migration/
+│   └── wms-api/             # FastAPI（uv 管理依赖）
+│       ├── app/
+│       │   ├── platform/    # iam + 操作日志
+│       │   ├── catalog/
+│       │   ├── inventory/
+│       │   ├── inbound/
+│       │   ├── outbound/
+│       │   └── stocktake/
+│       ├── alembic/         # MySQL 迁移
+│       ├── tests/           # pytest + httpx
+│       ├── .env.example
+│       ├── pyproject.toml
+│       └── uv.lock
 ├── src/                     # 领域 CONTEXT.md（与包名对齐）
 │   ├── catalog/CONTEXT.md
 │   ├── inventory/CONTEXT.md
@@ -286,7 +293,10 @@ CREATE TABLE inventory_ledger (
         <li>提交信息：简体中文，说明「为什么」</li>
         <li>领域用语与 <a href="domain.html">领域模型</a> / <code>CONTEXT.md</code> 一致，避免「冻结」一词混用</li>
         <li>接口变更更新 OpenAPI；破坏性变更升 <code>/api/v2</code></li>
-        <li>库存单测必覆盖：分配不足、实扣、释放预留、乐观锁冲突、幂等、盘点锁拒绝进出</li>
+        <li>配置与密钥：pydantic-settings + <code>.env</code>（不入库）；Compose/环境变量注入</li>
+        <li>时间：DB 与 API 统一 UTC；前端/小程序展示再转本地</li>
+        <li>CORS：开发环境白名单本地 Vite 源；小程序不依赖浏览器 CORS</li>
+        <li>库存单测/集成测必覆盖：分配不足、实扣、释放预留、乐观锁冲突、幂等、盘点锁拒绝进出（pytest + httpx）</li>
         <li>禁止在 Controller 或 inbound/outbound 包直接 UPDATE <code>inventory</code></li>
         <li>操作日志与库存流水分表存储、分接口查询</li>
       </ul>
@@ -297,7 +307,7 @@ CREATE TABLE inventory_ledger (
           <tr><th>阶段</th><th>周期</th><th>交付物</th></tr>
         </thead>
         <tbody>
-          <tr><td>M0 开工</td><td>第 1 周</td><td>Monorepo、CI、登录骨架、Flyway（含 warehouse）</td></tr>
+          <tr><td>M0 开工</td><td>第 1 周</td><td>Monorepo、CI、uv 初始化 API、登录骨架、Alembic（含 warehouse）</td></tr>
           <tr><td>M1 主数据</td><td>第 2–3 周</td><td>仓库/SKU/库位 CRUD、权限菜单</td></tr>
           <tr><td>M2 入库闭环</td><td>第 4–5 周</td><td>入库单 + 部分上架 + 增库存 + 流水</td></tr>
           <tr><td>M3 出库闭环</td><td>第 6–7 周</td><td>分配预留 + 拣货实扣 + 取消释放 + 防超卖</td></tr>
