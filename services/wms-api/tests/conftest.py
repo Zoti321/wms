@@ -11,6 +11,7 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import Session
 
 # 默认与 .env.example 一致；隔离库可通过 TEST_DATABASE_URL 指定。
 DEFAULT_TEST_URL = "mysql+pymysql://wms:wms@127.0.0.1:3306/wms?charset=utf8mb4"
@@ -18,8 +19,14 @@ DEFAULT_TEST_URL = "mysql+pymysql://wms:wms@127.0.0.1:3306/wms?charset=utf8mb4"
 SEED_USERNAME = "admin"
 SEED_PASSWORD = "Admin@123456"
 
-# 主数据表（不含 M0 已有 warehouse 骨架以外的平台表）；测试前清空以保证隔离。
-_CATALOG_TABLES = (
+# 依赖顺序：业务表 → 主数据（测试前清空）。
+_TRUNCATE_TABLES = (
+    "putaway_record",
+    "inbound_order_line",
+    "inbound_order",
+    "inventory_ledger",
+    "inventory",
+    "idempotency_record",
     "location",
     "sku",
     "supplier",
@@ -34,6 +41,16 @@ def _database_url() -> str:
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "mysql: 需要可达的 MySQL")
+
+
+def _truncate_business_tables(database_url: str) -> None:
+    engine = create_engine(database_url, pool_pre_ping=True)
+    with engine.begin() as conn:
+        conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
+        for table in _TRUNCATE_TABLES:
+            conn.execute(text(f"TRUNCATE TABLE `{table}`"))
+        conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
+    engine.dispose()
 
 
 @pytest.fixture(scope="session")
@@ -63,26 +80,43 @@ def migrated_database(database_url: str) -> str:
 
 
 @pytest.fixture()
+def db_session(migrated_database: str) -> Generator[Session, None, None]:
+    from app.shared.config import get_settings
+    from app.shared.db import get_session_factory, reset_engine
+
+    get_settings.cache_clear()
+    reset_engine()
+    _truncate_business_tables(migrated_database)
+    os.environ["DATABASE_URL"] = migrated_database
+    get_settings.cache_clear()
+    reset_engine()
+
+    session = get_session_factory()()
+    try:
+        yield session
+    finally:
+        session.close()
+        get_settings.cache_clear()
+        reset_engine()
+
+
+@pytest.fixture()
 def client(migrated_database: str) -> Generator[TestClient, None, None]:
     # 延迟导入，确保环境变量已注入后再构建设置。
     from app.main import app
+    from app.inventory.application.lock import reset_location_lock_checker
     from app.shared.config import get_settings
     from app.shared.db import reset_engine
 
     get_settings.cache_clear()
     reset_engine()
-
-    engine = create_engine(migrated_database, pool_pre_ping=True)
-    with engine.begin() as conn:
-        conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
-        for table in _CATALOG_TABLES:
-            conn.execute(text(f"TRUNCATE TABLE `{table}`"))
-        conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
-    engine.dispose()
+    reset_location_lock_checker()
+    _truncate_business_tables(migrated_database)
 
     with TestClient(app) as test_client:
         yield test_client
 
+    reset_location_lock_checker()
     get_settings.cache_clear()
     reset_engine()
 

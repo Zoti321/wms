@@ -12,6 +12,8 @@ from app.shared.db import Base
 
 # 注册模型元数据
 import app.catalog.infrastructure.models  # noqa: F401
+import app.inbound.infrastructure.models  # noqa: F401
+import app.inventory.infrastructure.models  # noqa: F401
 import app.platform.infrastructure.models  # noqa: F401
 
 config = context.config
