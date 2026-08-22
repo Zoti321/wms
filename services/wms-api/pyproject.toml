@@ -12,8 +12,10 @@ dependencies = [
     "alembic>=1.14.0",
     "pydantic-settings>=2.6.0",
     "python-jose[cryptography]>=3.3.0",
-    "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=4.0.0",
     "python-multipart>=0.0.17",
+    "prometheus-client>=0.21.0",
+    "prometheus-fastapi-instrumentator>=7.0.0",
 ]
 
 [dependency-groups]
@@ -33,3 +35,7 @@ packages = ["app"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "mysql: 需要可达的 MySQL",
+    "uat: 发版前后端用户验收套件（默认不收集；uv run pytest tests/uat）",
+]

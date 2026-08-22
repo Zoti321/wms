@@ -1,0 +1,496 @@
+"""主数据 HTTP 路由。"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+
+from app.catalog.api.schemas import (
+    CustomerCreate,
+    CustomerData,
+    CustomerUpdate,
+    LocationCreate,
+    LocationData,
+    LocationUpdate,
+    SkuCreate,
+    SkuData,
+    SkuUpdate,
+    SupplierCreate,
+    SupplierData,
+    SupplierUpdate,
+    WarehouseCreate,
+    WarehouseData,
+    WarehouseUpdate,
+)
+from app.catalog.application import catalog_service as svc
+from app.platform.api.deps import CurrentUser, require_permissions
+from app.platform.domain.permissions import PERM_CATALOG_READ, PERM_CATALOG_WRITE
+from app.shared.db import get_db
+from app.shared.http_errors import DomainErrorRule, map_domain_error
+from app.shared.pagination import pagination_query
+from app.shared.response import ok
+
+router = APIRouter(tags=["catalog"])
+
+_CATALOG_RULES = (
+    DomainErrorRule(svc.CatalogNotFoundError, 40400, status.HTTP_404_NOT_FOUND, "资源不存在"),
+    DomainErrorRule(svc.CatalogConflictError, 40900, status.HTTP_409_CONFLICT, "编码已存在"),
+)
+
+
+def _ok_item(model: type, data: dict[str, Any]) -> dict[str, Any]:
+    return ok(model.model_validate(data).model_dump())
+
+
+def _ok_paginated(model: type, payload: dict[str, Any]) -> dict[str, Any]:
+    return ok(
+        {
+            **payload,
+            "items": [
+                model.model_validate(item).model_dump() for item in payload["items"]
+            ],
+        }
+    )
+
+
+# --- warehouses ---
+
+
+@router.post("/warehouses")
+def create_warehouse(
+    body: WarehouseCreate,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
+) -> JSONResponse:
+    try:
+        data = svc.create_warehouse(
+            session, warehouse_code=body.warehouse_code, name=body.name
+        )
+    except svc.CatalogConflictError as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+    return JSONResponse(content=_ok_item(WarehouseData, data))
+
+
+@router.get("/warehouses")
+def list_warehouses(
+    code: str | None = None,
+    name: str | None = None,
+    entity_status: int | None = Query(default=None, alias="status", ge=0, le=1),
+    selectable: bool = False,
+    paging: tuple[int, int] = Depends(pagination_query),
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
+) -> dict:
+    page, page_size = paging
+    payload = svc.list_warehouses(
+        session,
+        code=code,
+        name=name,
+        status=entity_status,
+        selectable=selectable,
+        page=page,
+        page_size=page_size,
+    )
+    return _ok_paginated(WarehouseData, payload)
+
+
+@router.get("/warehouses/{warehouse_id}")
+def get_warehouse(
+    warehouse_id: int,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
+) -> dict:
+    try:
+        return _ok_item(WarehouseData, svc.get_warehouse(session, warehouse_id))
+    except svc.CatalogNotFoundError as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+
+
+@router.patch("/warehouses/{warehouse_id}")
+def update_warehouse(
+    warehouse_id: int,
+    body: WarehouseUpdate,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
+) -> dict:
+    try:
+        return _ok_item(
+            WarehouseData,
+            svc.update_warehouse(session, warehouse_id, name=body.name),
+        )
+    except (svc.CatalogConflictError, svc.CatalogNotFoundError) as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+
+
+@router.post("/warehouses/{warehouse_id}/deactivate")
+def deactivate_warehouse(
+    warehouse_id: int,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
+) -> dict:
+    try:
+        return _ok_item(
+            WarehouseData, svc.deactivate_warehouse(session, warehouse_id)
+        )
+    except (svc.CatalogConflictError, svc.CatalogNotFoundError) as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+
+
+# --- skus ---
+
+
+@router.post("/skus")
+def create_sku(
+    body: SkuCreate,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
+) -> JSONResponse:
+    try:
+        data = svc.create_sku(
+            session,
+            sku_code=body.sku_code,
+            name=body.name,
+            unit=body.unit,
+            spec=body.spec,
+            barcode=body.barcode,
+            safety_stock=body.safety_stock,
+        )
+    except svc.CatalogConflictError as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+    return JSONResponse(content=_ok_item(SkuData, data))
+
+
+@router.get("/skus")
+def list_skus(
+    code: str | None = None,
+    name: str | None = None,
+    entity_status: int | None = Query(default=None, alias="status", ge=0, le=1),
+    selectable: bool = False,
+    paging: tuple[int, int] = Depends(pagination_query),
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
+) -> dict:
+    page, page_size = paging
+    # SKU 跨仓共享；「按仓筛可用 SKU」= 受保护列表 + selectable（启用中）
+    payload = svc.list_skus(
+        session,
+        code=code,
+        name=name,
+        status=entity_status,
+        selectable=selectable,
+        page=page,
+        page_size=page_size,
+    )
+    return _ok_paginated(SkuData, payload)
+
+
+@router.get("/skus/{sku_id}")
+def get_sku(
+    sku_id: int,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
+) -> dict:
+    try:
+        return _ok_item(SkuData, svc.get_sku(session, sku_id))
+    except svc.CatalogNotFoundError as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+
+
+@router.patch("/skus/{sku_id}")
+def update_sku(
+    sku_id: int,
+    body: SkuUpdate,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
+) -> dict:
+    try:
+        return _ok_item(
+            SkuData,
+            svc.update_sku(
+                session,
+                sku_id,
+                name=body.name,
+                unit=body.unit,
+                spec=body.spec,
+                barcode=body.barcode,
+                safety_stock=body.safety_stock,
+            ),
+        )
+    except (svc.CatalogConflictError, svc.CatalogNotFoundError) as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+
+
+@router.post("/skus/{sku_id}/deactivate")
+def deactivate_sku(
+    sku_id: int,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
+) -> dict:
+    try:
+        return _ok_item(SkuData, svc.deactivate_sku(session, sku_id))
+    except svc.CatalogNotFoundError as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+
+
+# --- locations ---
+
+
+@router.post("/locations")
+def create_location(
+    body: LocationCreate,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
+) -> JSONResponse:
+    try:
+        data = svc.create_location(
+            session,
+            warehouse_id=body.warehouse_id,
+            location_code=body.location_code,
+            zone=body.zone,
+            aisle=body.aisle,
+            bin=body.bin,
+            space_status=body.space_status,
+        )
+    except (svc.CatalogConflictError, svc.CatalogNotFoundError) as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+    return JSONResponse(content=_ok_item(LocationData, data))
+
+
+@router.get("/locations")
+def list_locations(
+    warehouse_id: int | None = None,
+    code: str | None = None,
+    entity_status: int | None = Query(default=None, alias="status", ge=0, le=1),
+    space_status: str | None = None,
+    selectable: bool = False,
+    paging: tuple[int, int] = Depends(pagination_query),
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
+) -> dict:
+    page, page_size = paging
+    try:
+        payload = svc.list_locations(
+            session,
+            warehouse_id=warehouse_id,
+            code=code,
+            status=entity_status,
+            space_status=space_status,
+            selectable=selectable,
+            page=page,
+            page_size=page_size,
+        )
+    except svc.CatalogConflictError as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+    return _ok_paginated(LocationData, payload)
+
+
+@router.get("/locations/{location_id}")
+def get_location(
+    location_id: int,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
+) -> dict:
+    try:
+        return _ok_item(LocationData, svc.get_location(session, location_id))
+    except svc.CatalogNotFoundError as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+
+
+@router.patch("/locations/{location_id}")
+def update_location(
+    location_id: int,
+    body: LocationUpdate,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
+) -> dict:
+    try:
+        return _ok_item(
+            LocationData,
+            svc.update_location(
+                session,
+                location_id,
+                zone=body.zone,
+                aisle=body.aisle,
+                bin=body.bin,
+                space_status=body.space_status,
+            ),
+        )
+    except (svc.CatalogConflictError, svc.CatalogNotFoundError) as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+
+
+@router.post("/locations/{location_id}/deactivate")
+def deactivate_location(
+    location_id: int,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
+) -> dict:
+    try:
+        return _ok_item(LocationData, svc.deactivate_location(session, location_id))
+    except svc.CatalogNotFoundError as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+
+
+# --- suppliers ---
+
+
+@router.post("/suppliers")
+def create_supplier(
+    body: SupplierCreate,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
+) -> JSONResponse:
+    try:
+        data = svc.create_supplier(
+            session, supplier_code=body.supplier_code, name=body.name
+        )
+    except svc.CatalogConflictError as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+    return JSONResponse(content=_ok_item(SupplierData, data))
+
+
+@router.get("/suppliers")
+def list_suppliers(
+    code: str | None = None,
+    name: str | None = None,
+    entity_status: int | None = Query(default=None, alias="status", ge=0, le=1),
+    selectable: bool = False,
+    paging: tuple[int, int] = Depends(pagination_query),
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
+) -> dict:
+    page, page_size = paging
+    payload = svc.list_suppliers(
+        session,
+        code=code,
+        name=name,
+        status=entity_status,
+        selectable=selectable,
+        page=page,
+        page_size=page_size,
+    )
+    return _ok_paginated(SupplierData, payload)
+
+
+@router.get("/suppliers/{supplier_id}")
+def get_supplier(
+    supplier_id: int,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
+) -> dict:
+    try:
+        return _ok_item(SupplierData, svc.get_supplier(session, supplier_id))
+    except svc.CatalogNotFoundError as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+
+
+@router.patch("/suppliers/{supplier_id}")
+def update_supplier(
+    supplier_id: int,
+    body: SupplierUpdate,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
+) -> dict:
+    try:
+        return _ok_item(
+            SupplierData,
+            svc.update_supplier(session, supplier_id, name=body.name),
+        )
+    except (svc.CatalogConflictError, svc.CatalogNotFoundError) as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+
+
+@router.post("/suppliers/{supplier_id}/deactivate")
+def deactivate_supplier(
+    supplier_id: int,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
+) -> dict:
+    try:
+        return _ok_item(SupplierData, svc.deactivate_supplier(session, supplier_id))
+    except svc.CatalogNotFoundError as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+
+
+# --- customers ---
+
+
+@router.post("/customers")
+def create_customer(
+    body: CustomerCreate,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
+) -> JSONResponse:
+    try:
+        data = svc.create_customer(
+            session, customer_code=body.customer_code, name=body.name
+        )
+    except svc.CatalogConflictError as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+    return JSONResponse(content=_ok_item(CustomerData, data))
+
+
+@router.get("/customers")
+def list_customers(
+    code: str | None = None,
+    name: str | None = None,
+    entity_status: int | None = Query(default=None, alias="status", ge=0, le=1),
+    selectable: bool = False,
+    paging: tuple[int, int] = Depends(pagination_query),
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
+) -> dict:
+    page, page_size = paging
+    payload = svc.list_customers(
+        session,
+        code=code,
+        name=name,
+        status=entity_status,
+        selectable=selectable,
+        page=page,
+        page_size=page_size,
+    )
+    return _ok_paginated(CustomerData, payload)
+
+
+@router.get("/customers/{customer_id}")
+def get_customer(
+    customer_id: int,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
+) -> dict:
+    try:
+        return _ok_item(CustomerData, svc.get_customer(session, customer_id))
+    except svc.CatalogNotFoundError as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+
+
+@router.patch("/customers/{customer_id}")
+def update_customer(
+    customer_id: int,
+    body: CustomerUpdate,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
+) -> dict:
+    try:
+        return _ok_item(
+            CustomerData,
+            svc.update_customer(session, customer_id, name=body.name),
+        )
+    except (svc.CatalogConflictError, svc.CatalogNotFoundError) as exc:
+        map_domain_error(exc, _CATALOG_RULES)
+
+
+@router.post("/customers/{customer_id}/deactivate")
+def deactivate_customer(
+    customer_id: int,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
+) -> dict:
+    try:
+        return _ok_item(CustomerData, svc.deactivate_customer(session, customer_id))
+    except svc.CatalogNotFoundError as exc:
+        map_domain_error(exc, _CATALOG_RULES)
