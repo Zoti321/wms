@@ -2,89 +2,30 @@
 
 from __future__ import annotations
 
-from uuid import uuid4
-
-from tests.conftest import SEED_PASSWORD
-
-
-def _login(client, username: str, password: str = SEED_PASSWORD) -> dict[str, str]:
-    resp = client.post(
-        "/api/v1/auth/login",
-        json={"username": username, "password": password},
-    )
-    assert resp.status_code == 200, resp.text
-    token = resp.json()["data"]["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-
-def _seed_masters(client, auth_headers) -> dict[str, int]:
-    wh = client.post(
-        "/api/v1/warehouses",
-        headers=auth_headers,
-        json={"warehouse_code": f"WH-M6-{uuid4().hex[:6]}", "name": "鉴权仓"},
-    ).json()["data"]
-    sku = client.post(
-        "/api/v1/skus",
-        headers=auth_headers,
-        json={
-            "sku_code": f"SKU-M6-{uuid4().hex[:6]}",
-            "name": "鉴权商品",
-            "unit": "PCS",
-        },
-    ).json()["data"]
-    return {"warehouse_id": wh["id"], "sku_id": sku["id"]}
+from tests.http_scenarios import create_inbound, login, seed_masters, submit_inbound
 
 
 def test_viewer_cannot_approve_inbound(client, auth_headers) -> None:
-    masters = _seed_masters(client, auth_headers)
-    created = client.post(
-        "/api/v1/inbound-orders",
-        headers=auth_headers,
-        json={
-            "warehouse_id": masters["warehouse_id"],
-            "order_type": "purchase",
-            "lines": [{"sku_id": masters["sku_id"], "planned_qty": "5.000"}],
-        },
-    )
-    assert created.status_code == 200, created.text
-    order_id = created.json()["data"]["id"]
-    assert (
-        client.post(
-            f"/api/v1/inbound-orders/{order_id}/submit", headers=auth_headers
-        ).status_code
-        == 200
-    )
+    masters = seed_masters(client, auth_headers, prefix="M6", with_location=False)
+    created = create_inbound(client, auth_headers, masters, "5.000")
+    submit_inbound(client, auth_headers, created["id"])
 
-    viewer = _login(client, "viewer")
+    viewer = login(client, "viewer")
     denied = client.post(
-        f"/api/v1/inbound-orders/{order_id}/approve", headers=viewer
+        f"/api/v1/inbound-orders/{created['id']}/approve", headers=viewer
     )
     assert denied.status_code == 403
     assert denied.json()["code"] == 40300
 
 
 def test_supervisor_approve_inbound_writes_operation_log(client, auth_headers) -> None:
-    masters = _seed_masters(client, auth_headers)
-    created = client.post(
-        "/api/v1/inbound-orders",
-        headers=auth_headers,
-        json={
-            "warehouse_id": masters["warehouse_id"],
-            "order_type": "purchase",
-            "lines": [{"sku_id": masters["sku_id"], "planned_qty": "3.000"}],
-        },
-    )
-    order_id = created.json()["data"]["id"]
-    assert (
-        client.post(
-            f"/api/v1/inbound-orders/{order_id}/submit", headers=auth_headers
-        ).status_code
-        == 200
-    )
+    masters = seed_masters(client, auth_headers, prefix="M6", with_location=False)
+    created = create_inbound(client, auth_headers, masters, "3.000")
+    submit_inbound(client, auth_headers, created["id"])
 
-    supervisor = _login(client, "supervisor")
+    supervisor = login(client, "supervisor")
     approved = client.post(
-        f"/api/v1/inbound-orders/{order_id}/approve", headers=supervisor
+        f"/api/v1/inbound-orders/{created['id']}/approve", headers=supervisor
     )
     assert approved.status_code == 200, approved.text
 
@@ -97,17 +38,16 @@ def test_supervisor_approve_inbound_writes_operation_log(client, auth_headers) -
     items = logs.json()["data"]["items"]
     assert any(
         item["action"] == "inbound.approve"
-        and item["resource_id"] == str(order_id)
+        and item["resource_id"] == str(created["id"])
         and item["operator_name"] == "supervisor"
         for item in items
     )
-    # 操作日志不含账变字段
     assert "change_qty" not in items[0]
     assert "qty_on_hand" not in items[0]
 
 
 def test_login_writes_operation_log(client, auth_headers) -> None:
-    _login(client, "operator")
+    login(client, "operator")
     logs = client.get(
         "/api/v1/operation-logs",
         headers=auth_headers,
@@ -118,7 +58,7 @@ def test_login_writes_operation_log(client, auth_headers) -> None:
 
 
 def test_viewer_cannot_write_catalog(client) -> None:
-    viewer = _login(client, "viewer")
+    viewer = login(client, "viewer")
     denied = client.post(
         "/api/v1/warehouses",
         headers=viewer,
@@ -128,27 +68,12 @@ def test_viewer_cannot_write_catalog(client) -> None:
 
 
 def test_operator_can_create_inbound_but_not_approve(client, auth_headers) -> None:
-    masters = _seed_masters(client, auth_headers)
-    operator = _login(client, "operator")
-    created = client.post(
-        "/api/v1/inbound-orders",
-        headers=operator,
-        json={
-            "warehouse_id": masters["warehouse_id"],
-            "order_type": "purchase",
-            "lines": [{"sku_id": masters["sku_id"], "planned_qty": "2.000"}],
-        },
-    )
-    assert created.status_code == 200, created.text
-    order_id = created.json()["data"]["id"]
-    assert (
-        client.post(
-            f"/api/v1/inbound-orders/{order_id}/submit", headers=operator
-        ).status_code
-        == 200
-    )
+    masters = seed_masters(client, auth_headers, prefix="M6", with_location=False)
+    operator = login(client, "operator")
+    created = create_inbound(client, operator, masters, "2.000")
+    submit_inbound(client, operator, created["id"])
     denied = client.post(
-        f"/api/v1/inbound-orders/{order_id}/approve", headers=operator
+        f"/api/v1/inbound-orders/{created['id']}/approve", headers=operator
     )
     assert denied.status_code == 403
 
@@ -169,7 +94,6 @@ def test_admin_can_assign_role(client, auth_headers) -> None:
     users = client.get("/api/v1/users", headers=auth_headers)
     assert users.status_code == 200
     viewer = next(u for u in users.json()["data"]["items"] if u["username"] == "viewer")
-    # 赋回 viewer，验证接口可达
     patched = client.patch(
         f"/api/v1/users/{viewer['id']}/role",
         headers=auth_headers,
@@ -180,6 +104,6 @@ def test_admin_can_assign_role(client, auth_headers) -> None:
 
 
 def test_viewer_cannot_read_operation_logs(client) -> None:
-    viewer = _login(client, "viewer")
+    viewer = login(client, "viewer")
     denied = client.get("/api/v1/operation-logs", headers=viewer)
     assert denied.status_code == 403

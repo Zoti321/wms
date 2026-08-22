@@ -8,82 +8,7 @@ import pytest
 
 from app.inventory.application.lock import is_location_locked
 from app.shared.db import get_session_factory
-
-
-def _seed_masters(client, auth_headers) -> dict[str, int]:
-    wh = client.post(
-        "/api/v1/warehouses",
-        headers=auth_headers,
-        json={"warehouse_code": "WH-ST", "name": "盘点仓"},
-    ).json()["data"]
-    sku = client.post(
-        "/api/v1/skus",
-        headers=auth_headers,
-        json={"sku_code": "SKU-ST", "name": "盘点商品", "unit": "PCS"},
-    ).json()["data"]
-    loc = client.post(
-        "/api/v1/locations",
-        headers=auth_headers,
-        json={
-            "warehouse_id": wh["id"],
-            "location_code": "A-01-01",
-            "zone": "A",
-            "aisle": "01",
-            "bin": "01",
-        },
-    ).json()["data"]
-    loc_b = client.post(
-        "/api/v1/locations",
-        headers=auth_headers,
-        json={
-            "warehouse_id": wh["id"],
-            "location_code": "B-01-01",
-            "zone": "B",
-            "aisle": "01",
-            "bin": "01",
-        },
-    ).json()["data"]
-    return {
-        "warehouse_id": wh["id"],
-        "sku_id": sku["id"],
-        "location_id": loc["id"],
-        "location_b_id": loc_b["id"],
-    }
-
-
-def _putaway_stock(client, auth_headers, masters: dict[str, int], qty: str = "10.000") -> None:
-    created = client.post(
-        "/api/v1/inbound-orders",
-        headers=auth_headers,
-        json={
-            "warehouse_id": masters["warehouse_id"],
-            "order_type": "purchase",
-            "lines": [{"sku_id": masters["sku_id"], "planned_qty": qty}],
-        },
-    )
-    assert created.status_code == 200, created.text
-    order_id = created.json()["data"]["id"]
-    assert (
-        client.post(
-            f"/api/v1/inbound-orders/{order_id}/submit", headers=auth_headers
-        ).status_code
-        == 200
-    )
-    approved = client.post(
-        f"/api/v1/inbound-orders/{order_id}/approve", headers=auth_headers
-    )
-    assert approved.status_code == 200
-    line_id = approved.json()["data"]["lines"][0]["id"]
-    putaway = client.post(
-        f"/api/v1/inbound-orders/{order_id}/putaway",
-        headers={**auth_headers, "Idempotency-Key": f"st-seed-{uuid4().hex}"},
-        json={
-            "line_id": line_id,
-            "location_id": masters["location_id"],
-            "qty": qty,
-        },
-    )
-    assert putaway.status_code == 200, putaway.text
+from tests.http_scenarios import putaway_stock, seed_masters
 
 
 def test_stocktake_write_requires_auth(client) -> None:
@@ -96,8 +21,8 @@ def test_stocktake_write_requires_auth(client) -> None:
 
 
 def test_stocktake_full_cycle_lock_count_approve_unlock(client, auth_headers) -> None:
-    masters = _seed_masters(client, auth_headers)
-    _putaway_stock(client, auth_headers, masters, qty="10.000")
+    masters = seed_masters(client, auth_headers, prefix="ST", extra_location=True)
+    putaway_stock(client, auth_headers, masters, qty_planned="10.000")
 
     # 盘前先分配，盘中拣货应被拒
     outbound = client.post(
@@ -280,8 +205,8 @@ def test_stocktake_full_cycle_lock_count_approve_unlock(client, auth_headers) ->
 
 
 def test_stocktake_cancel_releases_lock(client, auth_headers) -> None:
-    masters = _seed_masters(client, auth_headers)
-    _putaway_stock(client, auth_headers, masters)
+    masters = seed_masters(client, auth_headers, prefix="ST", extra_location=True)
+    putaway_stock(client, auth_headers, masters)
 
     created = client.post(
         "/api/v1/stocktakes",
@@ -306,8 +231,8 @@ def test_stocktake_cancel_releases_lock(client, auth_headers) -> None:
 
 
 def test_stocktake_create_idempotent(client, auth_headers) -> None:
-    masters = _seed_masters(client, auth_headers)
-    _putaway_stock(client, auth_headers, masters)
+    masters = seed_masters(client, auth_headers, prefix="ST", extra_location=True)
+    putaway_stock(client, auth_headers, masters)
     key = f"st-create-idem-{uuid4().hex}"
     first = client.post(
         "/api/v1/stocktakes",
@@ -386,8 +311,8 @@ def test_stocktake_approve_forbidden_for_non_supervisor(db_session) -> None:
 
 
 def test_stocktake_approve_idempotent(client, auth_headers) -> None:
-    masters = _seed_masters(client, auth_headers)
-    _putaway_stock(client, auth_headers, masters, qty="5.000")
+    masters = seed_masters(client, auth_headers, prefix="ST", extra_location=True)
+    putaway_stock(client, auth_headers, masters, qty_planned="5.000")
     created = client.post(
         "/api/v1/stocktakes",
         headers={**auth_headers, "Idempotency-Key": f"st-ic-{uuid4().hex}"},
@@ -428,8 +353,8 @@ def test_stocktake_approve_idempotent(client, auth_headers) -> None:
 
 def test_stocktake_approve_loss_insufficient_keeps_lock(client, auth_headers) -> None:
     """盘亏超出在库：整单失败、不落账、不释锁。"""
-    masters = _seed_masters(client, auth_headers)
-    _putaway_stock(client, auth_headers, masters, qty="3.000")
+    masters = seed_masters(client, auth_headers, prefix="ST", extra_location=True)
+    putaway_stock(client, auth_headers, masters, qty_planned="3.000")
 
     # 先分配冻结 2，使在库 3 但盘亏到 0 仍 >= frozen；要失败需盘亏超过 on_hand。
     # 直接 counted=0 对 on_hand=3 是合法盘亏。改为：账面 3，录入后通过端口外手段不够——
