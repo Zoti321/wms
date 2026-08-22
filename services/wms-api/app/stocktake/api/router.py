@@ -15,6 +15,7 @@ from app.platform.domain.permissions import (
 )
 from app.shared.db import get_db
 from app.shared.http_errors import DomainErrorRule, map_domain_error, require_idempotency_key
+from app.shared.pagination import pagination_query
 from app.shared.response import ok
 from app.stocktake.api.schemas import RecordCountsRequest, StocktakeOrderCreate
 from app.stocktake.application import stocktake_service as svc
@@ -49,6 +50,26 @@ def create_stocktake(
     except svc.StocktakeError as exc:
         map_domain_error(exc, _STOCKTAKE_RULES)
     return JSONResponse(content=ok(data))
+
+
+@router.get("")
+def list_stocktakes(
+    warehouse_id: int | None = None,
+    status: str | None = None,
+    paging: tuple[int, int] = Depends(pagination_query),
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_STOCKTAKE_READ)),
+) -> dict:
+    page, page_size = paging
+    return ok(
+        svc.list_orders(
+            session,
+            warehouse_id=warehouse_id,
+            status=status,
+            page=page,
+            page_size=page_size,
+        )
+    )
 
 
 @router.get("/{order_id}")

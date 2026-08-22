@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4
 
@@ -31,6 +32,7 @@ from app.outbound.infrastructure.models import (
     OutboundOrderLine,
     PickRecord,
 )
+from app.shared.pagination import paginate, paginated_payload
 
 APPROVE_SCOPE = "outbound.approve"
 PICK_SCOPE = "outbound.pick"
@@ -53,6 +55,21 @@ def _fmt(qty: Decimal) -> str:
     return f"{qty.quantize(Decimal('0.001'))}"
 
 
+def _fmt_dt(value: datetime) -> str:
+    return value.isoformat(sep=" ", timespec="seconds")
+
+
+def _order_list_item(order: OutboundOrder) -> dict:
+    return {
+        "id": order.id,
+        "order_no": order.order_no,
+        "warehouse_id": order.warehouse_id,
+        "order_type": order.order_type,
+        "status": order.status,
+        "created_at": _fmt_dt(order.created_at),
+    }
+
+
 def _order_to_dict(order: OutboundOrder) -> dict:
     return {
         "id": order.id,
@@ -63,6 +80,7 @@ def _order_to_dict(order: OutboundOrder) -> dict:
         "customer_id": order.customer_id,
         "remark": order.remark,
         "created_by": order.created_by,
+        "created_at": _fmt_dt(order.created_at),
         "lines": [
             {
                 "id": line.id,
@@ -168,6 +186,29 @@ def update_order(
 
 def get_order(session: Session, order_id: int) -> dict:
     return _order_to_dict(_get_order(session, order_id))
+
+
+def list_orders(
+    session: Session,
+    *,
+    warehouse_id: int | None = None,
+    status: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
+    stmt = select(OutboundOrder)
+    if warehouse_id is not None:
+        stmt = stmt.where(OutboundOrder.warehouse_id == warehouse_id)
+    if status is not None:
+        stmt = stmt.where(OutboundOrder.status == status)
+    stmt = stmt.order_by(OutboundOrder.created_at.desc(), OutboundOrder.id.desc())
+    rows, total = paginate(session, stmt, page=page, page_size=page_size)
+    return paginated_payload(
+        [_order_list_item(order) for order in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def submit_order(session: Session, order_id: int) -> dict:

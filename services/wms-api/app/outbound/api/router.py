@@ -22,6 +22,7 @@ from app.platform.domain.permissions import (
 )
 from app.shared.db import get_db
 from app.shared.http_errors import DomainErrorRule, map_domain_error, require_idempotency_key
+from app.shared.pagination import pagination_query
 from app.shared.response import ok
 
 router = APIRouter(prefix="/outbound-orders", tags=["outbound"])
@@ -53,6 +54,26 @@ def create_outbound_order(
     except svc.OutboundError as exc:
         map_domain_error(exc, _OUTBOUND_RULES)
     return JSONResponse(content=ok(data))
+
+
+@router.get("")
+def list_outbound_orders(
+    warehouse_id: int | None = None,
+    status: str | None = None,
+    paging: tuple[int, int] = Depends(pagination_query),
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_OUTBOUND_READ)),
+) -> dict:
+    page, page_size = paging
+    return ok(
+        svc.list_orders(
+            session,
+            warehouse_id=warehouse_id,
+            status=status,
+            page=page,
+            page_size=page_size,
+        )
+    )
 
 
 @router.get("/{order_id}")

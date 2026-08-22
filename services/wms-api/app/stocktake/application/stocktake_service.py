@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4
 
@@ -23,6 +24,7 @@ from app.stocktake.domain.status import (
     STATUS_COUNTING,
     TERMINAL_STATUSES,
 )
+from app.shared.pagination import paginate, paginated_payload
 from app.stocktake.infrastructure.models import StocktakeLine, StocktakeOrder
 
 CREATE_SCOPE = "stocktake.create"
@@ -52,6 +54,20 @@ def _fmt(qty: Decimal | None) -> str | None:
     return f"{qty.quantize(Decimal('0.001'))}"
 
 
+def _fmt_dt(value: datetime) -> str:
+    return value.isoformat(sep=" ", timespec="seconds")
+
+
+def _order_list_item(order: StocktakeOrder) -> dict:
+    return {
+        "id": order.id,
+        "order_no": order.order_no,
+        "warehouse_id": order.warehouse_id,
+        "status": order.status,
+        "created_at": _fmt_dt(order.created_at),
+    }
+
+
 def _diff(book_qty: Decimal, counted_qty: Decimal | None) -> str | None:
     if counted_qty is None:
         return None
@@ -67,6 +83,7 @@ def _order_to_dict(order: StocktakeOrder) -> dict:
         "status": order.status,
         "remark": order.remark,
         "created_by": order.created_by,
+        "created_at": _fmt_dt(order.created_at),
         "approved_by": order.approved_by,
         "lines": [
             {
@@ -95,6 +112,29 @@ def _get_order(session: Session, order_id: int) -> StocktakeOrder:
 
 def get_order(session: Session, order_id: int) -> dict:
     return _order_to_dict(_get_order(session, order_id))
+
+
+def list_orders(
+    session: Session,
+    *,
+    warehouse_id: int | None = None,
+    status: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
+    stmt = select(StocktakeOrder)
+    if warehouse_id is not None:
+        stmt = stmt.where(StocktakeOrder.warehouse_id == warehouse_id)
+    if status is not None:
+        stmt = stmt.where(StocktakeOrder.status == status)
+    stmt = stmt.order_by(StocktakeOrder.created_at.desc(), StocktakeOrder.id.desc())
+    rows, total = paginate(session, stmt, page=page, page_size=page_size)
+    return paginated_payload(
+        [_order_list_item(order) for order in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def create_order(

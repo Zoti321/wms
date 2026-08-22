@@ -18,9 +18,10 @@ uv run uvicorn app.main:app --reload --app-dir .
 健康检查：`GET /health`  
 登录：`POST /api/v1/auth/login`（body：`{"username":"admin","password":"Admin@123456"}`）  
 主数据（需 Bearer）：`/api/v1/warehouses`、`/skus`、`/locations`、`/suppliers`、`/customers`；删除一律 `POST .../{id}/deactivate`（停用，不物理删除）。库位空间状态字段为 `space_status`（idle/occupied/frozen），勿与库存冻结数量混淆。  
-入库：`/api/v1/inbound-orders`（submit / approve / putaway / cancel）；上架必须带 `Idempotency-Key`，经库存 `increase` 记账。  
-出库：`/api/v1/outbound-orders`（submit / approve / pick / cancel）；审核=分配、拣货=实扣、取消未拣=释放预留；approve/pick/cancel 必须带 `Idempotency-Key`。  
-盘点：`/api/v1/stocktakes`（创建并加盘点锁 / counts 实盘 / approve 调账释锁 / cancel 释锁）；create/approve/cancel 必须带 `Idempotency-Key`；审核需 `stocktake:approve`（admin/supervisor）。  
+入库：`GET /api/v1/inbound-orders`（列表，支持 `warehouse_id`/`status`/`page`/`page_size`）；`POST /api/v1/inbound-orders`（submit / approve / putaway / cancel）；上架必须带 `Idempotency-Key`，经库存 `increase` 记账。  
+出库：`GET /api/v1/outbound-orders`（列表，查询参数同上）；`POST /api/v1/outbound-orders`（submit / approve / pick / cancel）；审核=分配、拣货=实扣、取消未拣=释放预留；approve/pick/cancel 必须带 `Idempotency-Key`。  
+盘点：`GET /api/v1/stocktakes`（列表，查询参数同上）；`POST /api/v1/stocktakes`（创建并加盘点锁 / counts 实盘 / approve 调账释锁 / cancel 释锁）；create/approve/cancel 必须带 `Idempotency-Key`；审核需 `stocktake:approve`（admin/supervisor）。  
+列表响应 `data` 形如 `{ "items": [...], "total": N, "page": P, "page_size": S }`；默认按 `created_at` 倒序；`page_size` 默认 20、上限 100。
 库存查询：`GET /api/v1/inventories`、`GET /api/v1/inventories/ledgers`、`GET /api/v1/inventories/alerts`。  
 基础报表（需 `report:read`：admin/supervisor/viewer；operator 默认无）：  
 `GET /api/v1/reports/daily?warehouse_id=&business_date=`（JSON）、`GET /api/v1/reports/daily.csv?...`（CSV 直出）。  

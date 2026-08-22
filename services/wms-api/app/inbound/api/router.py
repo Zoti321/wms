@@ -17,6 +17,7 @@ from app.platform.domain.permissions import (
 )
 from app.shared.db import get_db
 from app.shared.http_errors import DomainErrorRule, map_domain_error, require_idempotency_key
+from app.shared.pagination import pagination_query
 from app.shared.response import ok
 
 router = APIRouter(prefix="/inbound-orders", tags=["inbound"])
@@ -48,6 +49,26 @@ def create_inbound_order(
     except svc.InboundError as exc:
         map_domain_error(exc, _INBOUND_RULES)
     return JSONResponse(content=ok(data))
+
+
+@router.get("")
+def list_inbound_orders(
+    warehouse_id: int | None = None,
+    status: str | None = None,
+    paging: tuple[int, int] = Depends(pagination_query),
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_INBOUND_READ)),
+) -> dict:
+    page, page_size = paging
+    return ok(
+        svc.list_orders(
+            session,
+            warehouse_id=warehouse_id,
+            status=status,
+            page=page,
+            page_size=page_size,
+        )
+    )
 
 
 @router.get("/{order_id}")
