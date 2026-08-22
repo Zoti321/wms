@@ -87,3 +87,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
 def has_permission(role_code: str, *required: str) -> bool:
     granted = ROLE_PERMISSIONS.get(role_code, frozenset())
     return all(perm in granted for perm in required)
+
+
+def permissions_for_role(role_code: str) -> list[str]:
+    """返回角色权限码列表（排序后，供 /auth/me 与前端菜单）。"""
+    return sorted(ROLE_PERMISSIONS.get(role_code, frozenset()))

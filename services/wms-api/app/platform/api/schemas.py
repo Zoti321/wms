@@ -19,10 +19,33 @@ class MeData(BaseModel):
     id: int
     username: str
     role_code: str
+    permissions: list[str]
 
 
 class AssignRoleRequest(BaseModel):
     role_code: str = Field(min_length=1, max_length=64)
+
+
+class CreateUserRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=8, max_length=128)
+    role_code: str = Field(min_length=1, max_length=64)
+
+
+class ResetPasswordRequest(BaseModel):
+    password: str = Field(min_length=8, max_length=128)
+
+
+class CreateDictItemRequest(BaseModel):
+    dict_type: str = Field(min_length=1, max_length=64)
+    code: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=128)
+    sort_order: int = Field(default=0, ge=0)
+
+
+class UpdateDictItemRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    sort_order: int | None = Field(default=None, ge=0)
 
 
 class DailyReportData(BaseModel):

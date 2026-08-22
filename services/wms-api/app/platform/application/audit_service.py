@@ -10,6 +10,12 @@ from sqlalchemy.orm import Session
 from app.platform.infrastructure.models import OperationLog
 
 ACTION_LOGIN = "auth.login"
+ACTION_USER_CREATE = "user.create"
+ACTION_USER_DEACTIVATE = "user.deactivate"
+ACTION_USER_RESET_PASSWORD = "user.reset_password"
+ACTION_DICT_CREATE = "dict.create"
+ACTION_DICT_UPDATE = "dict.update"
+ACTION_DICT_DEACTIVATE = "dict.deactivate"
 ACTION_INBOUND_APPROVE = "inbound.approve"
 ACTION_OUTBOUND_APPROVE = "outbound.approve"
 ACTION_STOCKTAKE_APPROVE = "stocktake.approve"

@@ -10,6 +10,7 @@ from app.platform.api.deps import CurrentUser, get_current_user
 from app.platform.api.schemas import LoginRequest, MeData, TokenData
 from app.platform.application import audit_service as audit
 from app.platform.application.auth_service import InvalidCredentialsError, login_with_password
+from app.platform.domain.permissions import permissions_for_role
 from app.shared.config import Settings, get_settings
 from app.shared.db import get_db
 from app.shared.response import fail, ok
@@ -56,5 +57,6 @@ def me(current_user: CurrentUser = Depends(get_current_user)) -> dict:
             id=current_user.id,
             username=current_user.username,
             role_code=current_user.role_code,
+            permissions=permissions_for_role(current_user.role_code),
         ).model_dump()
     )
