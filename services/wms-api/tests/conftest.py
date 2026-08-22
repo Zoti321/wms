@@ -48,8 +48,25 @@ def _database_url() -> str:
     return os.environ.get("TEST_DATABASE_URL") or DEFAULT_TEST_URL
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--fail-on-skipped",
+        action="store_true",
+        default=False,
+        help="有 skip 时以失败退出（CI 门禁，避免无 MySQL 假绿）。",
+    )
+
+
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "mysql: 需要可达的 MySQL")
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    if not session.config.getoption("--fail-on-skipped"):
+        return
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    if reporter and reporter.stats.get("skipped"):
+        session.exitstatus = 1
 
 
 def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool | None:

@@ -1,9 +1,12 @@
 # 后端 UAT 人工抽查签字清单
 
-自动化套件：`services/wms-api/tests/uat`（`uv run pytest tests/uat`）。  
+自动化套件：`services/wms-api/tests/uat`（24 用例）。  
+发版门禁 CI：**GitHub Actions → wms-api UAT gate**（[workflow](../../.github/workflows/wms-api-uat.yml)）；staging 跑法见 [staging-uat.md](./staging-uat.md)。
+
 本清单**不替代**自动化；未覆盖的验收条目不得只靠签字通过。
 
-发版版本 / 环境：____________________    日期：__________
+发版版本 / 环境：____________________    日期：__________  
+自动化 Run（Actions URL 或本地命令输出）：____________________
 
 ## 自动化覆盖对照（需求验收标准）
 
@@ -15,6 +18,7 @@
 | platform | 无权限用户无法审核单据 | `test_无权限用户无法审核单据` | ☐ |
 | platform | 系统管理员可改角色；无权限者不能改角色 | `test_系统管理员_可改用户角色且仓管员无权限改角色` | ☐ |
 | platform | 关键操作写入操作日志，且可与流水分别查询 | `test_关键操作写入操作日志且可与库存流水分开查询` | ☐ |
+| platform | JSON 写读接口使用统一响应信封 | `test_JSON_写读接口使用统一响应信封` | ☐ |
 | catalog | 可创建并启用默认仓库；SKU、库位关联该仓库 | `test_系统管理员_可创建并启用默认仓库及关联SKU库位` | ☐ |
 | catalog | 停用 SKU 后不可被新单据选用；历史单据仍可查 | `test_停用SKU后不可被新单据选用且历史单据仍可查` | ☐ |
 | catalog | 库位空间状态变更不影响库存冻结数量口径 | `test_库位空间状态变更不影响库存冻结数量口径` | ☐ |
@@ -39,29 +43,55 @@
 
 ## 按角色抽查（自动化绿灯后）
 
-每角色至少一条关键路径。抽查须用该角色种子账号登录 API（或同等授权），核对与上表自动化条目一致。
+每角色至少一条关键路径。抽查须用该角色种子账号登录 API（或同等授权），核对与上表自动化条目一致。  
+以下步骤假设 API 基址为 `{{BASE}}`（如 `https://staging.example.com`）；先 `POST {{BASE}}/api/v1/auth/login` 取 `access_token`，后续请求带 `Authorization: Bearer <token>`。
 
 ### 系统管理员
 
-抽查路径：改角色 / 无权限拒绝（对照 `test_系统管理员_可改用户角色且仓管员无权限改角色` 与 `test_无权限用户无法审核单据`）。
+对照自动化：`test_系统管理员_可改用户角色且仓管员无权限改角色`、`test_无权限用户无法审核单据`。
 
-- 步骤摘要：管理员将某用户角色改回原角色应成功；仓管员调用改角色应 403。仓管员提交入库单后，用只读或仓管员账号审核应 403，单据仍为待审核。
+1. **登录**：`POST /api/v1/auth/login`，body `{"username":"admin","password":"<种子口令>"}` → 200，`data.access_token` 非空。
+2. **改角色（应有权）**：`GET /api/v1/users` 找到 `viewer` → `PATCH /api/v1/users/{id}/role`，body `{"role_code":"viewer"}` → 200。
+3. **仓管员改角色（应拒绝）**：用 `operator` 登录 → 对同一用户 `PATCH .../role` body `{"role_code":"admin"}` → **403**，信封 `code` ≠ 0。
+4. **无权限审核（应拒绝）**：`operator` 创建并提交入库单后，`operator` 或 `viewer` 调用 `POST /api/v1/inbound-orders/{id}/approve` → **403**；`GET` 单据仍为 `pending`。
+
 - 抽查结果：通过 ☐    不通过 ☐    备注：__________
 - 签字：__________    日期：__________
 
 ### 仓库主管
 
-抽查路径：出库审核（分配）或盘点审核（对照 `test_仓库主管_出库审核完成分配后冻结增加可用下降` 或盘点审核用例）。
+对照自动化：`test_仓库主管_出库审核完成分配后冻结增加可用下降` 或 `test_仓库主管_发起盘点实盘审核后余额与流水一致并释锁`。
 
-- 步骤摘要：审核出库单后核对冻结增加、可用下降；或盘点审核后核对余额与库存流水一致、盘点锁已释放（释锁后上架/拣货可成功）。
+**路径 A — 出库审核（分配）**
+
+1. 确保目标 SKU/库位已有在库（可先跑一条入库上架，或使用 UAT 已建数据）。
+2. `operator` 创建出库单并 `submit` → `supervisor` 登录。
+3. `POST /api/v1/outbound-orders/{id}/approve`（带 `Idempotency-Key`）→ 200。
+4. `viewer` 调用 `GET /api/v1/inventories?warehouse_id=&sku_id=` → 核对 **冻结增加、可用下降**，在库不变。
+
+**路径 B — 盘点审核**
+
+1. `supervisor` 创建盘点单（对某 zone 加盘点锁）→ 录入实盘 → `approve` 调账。
+2. `GET /api/v1/inventories/ledgers?ref_line_id=` 与余额一致；释锁后对同库位上架/拣货不再 409。
+
 - 抽查结果：通过 ☐    不通过 ☐    备注：__________
 - 签字：__________    日期：__________
 
 ### 仓管员
 
-抽查路径：上架或拣货（对照 `test_仓管员_采购入库多次部分上架后行累计流水与在库一致` 或拣货实扣用例）。
+对照自动化：`test_仓管员_采购入库多次部分上架后行累计流水与在库一致` 或 `test_仓管员_按库位部分拣货后在库与冻结同减`。
 
-- 步骤摘要：对已审核入库单部分上架，或对已分配出库单拣货；经库存查询看到在库/冻结与单据行累计一致。
+**路径 A — 部分上架**
+
+1. `operator` 登录；创建采购入库单 → `submit`；由 `supervisor` 审核。
+2. `POST /api/v1/inbound-orders/{id}/putaway`（带 `Idempotency-Key`），分两次部分数量上架。
+3. `GET` 单据行 `qty_putaway` 累计正确；`GET /api/v1/inventories` 在库与上架量一致。
+
+**路径 B — 拣货实扣**
+
+1. 对已分配出库单，`operator` 调用 `POST /api/v1/outbound-orders/{id}/pick`（带 `Idempotency-Key`）。
+2. 核对在库与冻结同减、单据行 `qty_picked` 更新。
+
 - 抽查结果：通过 ☐    不通过 ☐    备注：__________
 - 签字：__________    日期：__________
 

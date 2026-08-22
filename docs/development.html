@@ -340,7 +340,7 @@ CREATE TABLE inventory_ledger (
           <tr><td>M2 入库闭环</td><td>已完成</td><td>入库单 + 部分上架 + 库存增账 + 流水（<code>0003_m2</code>）</td></tr>
           <tr><td>M3 出库闭环</td><td>已完成</td><td>分配预留 + 拣货实扣 + 取消释放 + 乐观锁防超卖（<code>0004_m3</code>）</td></tr>
           <tr><td>M4 盘点报表</td><td>已完成</td><td>盘点锁、盈亏调账、库存预警、日报 JSON/CSV、操作日志（<code>0005_m4</code>–<code>0007_m6</code>）</td></tr>
-          <tr><td>M5 上线</td><td>进行中</td><td>UAT 自动化已交付；人工签字、CI、压测、备份演练、小程序作业面待完成</td></tr>
+          <tr><td>M5 上线</td><td>进行中</td><td>UAT 自动化与发版 CI 已就绪；三角色人工签字、压测、小程序作业面待完成</td></tr>
         </tbody>
       </table>
 
@@ -366,9 +366,9 @@ CREATE TABLE inventory_ledger (
           <tr><th>套件</th><th>位置</th><th>用途</th><th>当前</th></tr>
         </thead>
         <tbody>
-          <tr><td>日常集成测</td><td><code>services/wms-api/tests/</code>（不含 <code>uat/</code>）</td><td>PR 回归</td><td>106 用例；需可达 MySQL</td></tr>
+          <tr><td>日常集成测</td><td><code>services/wms-api/tests/</code>（不含 <code>uat/</code>）</td><td>PR 回归</td><td>120 用例；需可达 MySQL</td></tr>
           <tr><td>后端 UAT</td><td><code>services/wms-api/tests/uat/</code></td><td>发版/上线门禁</td><td>24 用例；本地 TestClient 或 <code>UAT_BASE_URL</code> 对 staging</td></tr>
-          <tr><td>人工签字</td><td><code>docs/uat/backend-signoff.md</code></td><td>三角色各抽查一条关键路径</td><td>待执行</td></tr>
+          <tr><td>人工签字</td><td><code>docs/uat/backend-signoff.md</code></td><td>三角色各抽查一条关键路径</td><td>自动化与 UAT CI 就绪；签字待执行</td></tr>
         </tbody>
       </table>
       <p>无 MySQL 且未设 <code>UAT_BASE_URL</code> 时集成测与 UAT 均 <code>pytest.skip</code>，不假绿。UAT 观测缺口登记见 <code>services/wms-api/tests/uat/README.md</code>。</p>
@@ -392,12 +392,12 @@ CREATE TABLE inventory_ledger (
           <tr><th>缺口</th><th>说明</th></tr>
         </thead>
         <tbody>
-          <tr><td>CI 流水线</td><td><code>.github/workflows/wms-api-test.yml</code>：MySQL 8 服务 + <code>uv run pytest</code>（不含 UAT）；PR / push <code>main</code> 触发</td></tr>
+          <tr><td>CI 流水线</td><td>PR：<code>.github/workflows/wms-api-test.yml</code>（MySQL 8 + 集成测，不含 UAT）；发版：<code>wms-api-uat.yml</code>（手动触发 UAT 门禁）</td></tr>
           <tr><td>健康检查</td><td><code>GET /health</code> 探测 MySQL（<code>SELECT 1</code>）；失败 HTTP 503 + <code>degraded</code>；可选 <code>HEALTH_CHECK_DB=false</code></td></tr>
           <tr><td>性能/压测</td><td>仅集成测覆盖轻量「并发分配不超卖」；无 P95 / 日单据量压测</td></tr>
           <tr><td>备份恢复演练</td><td><a href="runbooks/mysql-backup-restore.md">Runbook</a> 已文档化；季度人工演练待执行</td></tr>
           <tr><td>监控告警</td><td>错误率、耗时、连接池等待接入</td></tr>
-          <tr><td>UAT 人工签字</td><td>自动化已绿灯；<code>docs/uat/backend-signoff.md</code> 三角色抽查待完成</td></tr>
+          <tr><td>UAT 人工签字</td><td>自动化与 <code>wms-api-uat.yml</code> 门禁就绪；<code>docs/uat/backend-signoff.md</code> 含可执行 API 步骤，三角色抽查待完成</td></tr>
         </tbody>
       </table>
 
@@ -413,8 +413,8 @@ CREATE TABLE inventory_ledger (
       <h3>12.6 建议优先级</h3>
       <ol>
         <li><strong>支撑 Web 管理端</strong>：主数据列表分页（单据列表与用户/字典/权限码已就绪）。</li>
-        <li><strong>发版门禁</strong>：CI（MySQL service + <code>pytest</code>；发版前 <code>pytest tests/uat</code>）+ UAT 人工签字。</li>
-        <li><strong>生产就绪</strong>：健康检查探 DB（已完成）、<a href="runbooks/mysql-backup-restore.md">备份 Runbook</a>（已完成）；基础监控、staging 上 <code>UAT_BASE_URL</code> 重跑 UAT 待完成。</li>
+        <li><strong>发版门禁</strong>：PR CI（MySQL + 集成测）+ 发版前手动跑 <code>wms-api-uat.yml</code> 或 <code>pytest tests/uat</code> + UAT 人工签字（<a href="uat/backend-signoff.md">清单</a>）。</li>
+        <li><strong>生产就绪</strong>：健康检查探 DB（已完成）、<a href="runbooks/mysql-backup-restore.md">备份 Runbook</a>（已完成）；staging 上 <code>UAT_BASE_URL</code> 重跑 UAT（见 <a href="uat/staging-uat.md">staging 指南</a>）；基础监控待完成。</li>
       </ol>
 
       <div class="callout">

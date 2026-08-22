@@ -41,7 +41,8 @@ uv run pytest tests/uat
 
 - 发版/上线前：`uv run pytest tests/uat` 必须绿灯
 - 日常 PR：仍只跑 `uv run pytest`（不含本套件）
-- 自动化绿灯后，按 [签字清单](../../../docs/uat/backend-signoff.md) 由系统管理员、仓库主管、仓管员各抽查一条关键路径
+- 自动化绿灯后，按 [签字清单](../../../docs/uat/backend-signoff.md) 由系统管理员、仓库主管、仓管员各抽查一条关键路径（含可执行 API 步骤）
+- 发版 CI：GitHub Actions **wms-api UAT gate**（见 [staging-uat.md](../../../docs/uat/staging-uat.md)）
 
 ## 观测缺口
 
