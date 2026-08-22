@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -16,22 +16,16 @@ from app.platform.domain.permissions import (
     PERM_INBOUND_WRITE,
 )
 from app.shared.db import get_db
-from app.shared.response import fail, ok
+from app.shared.http_errors import DomainErrorRule, map_domain_error, require_idempotency_key
+from app.shared.response import ok
 
 router = APIRouter(prefix="/inbound-orders", tags=["inbound"])
 
-
-def _raise_inbound(exc: Exception) -> None:
-    if isinstance(exc, svc.InboundNotFoundError):
-        body, _ = fail(code=40400, message=str(exc) or "资源不存在", http_status=404)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=body) from exc
-    if isinstance(exc, svc.InboundConflictError):
-        body, _ = fail(code=40900, message=str(exc), http_status=409)
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=body) from exc
-    if isinstance(exc, svc.InboundError):
-        body, _ = fail(code=40000, message=str(exc), http_status=400)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=body) from exc
-    raise exc
+_INBOUND_RULES = (
+    DomainErrorRule(svc.InboundNotFoundError, 40400, status.HTTP_404_NOT_FOUND, "资源不存在"),
+    DomainErrorRule(svc.InboundConflictError, 40900, status.HTTP_409_CONFLICT),
+    DomainErrorRule(svc.InboundError, 40000, status.HTTP_400_BAD_REQUEST),
+)
 
 
 @router.post("")
@@ -52,7 +46,7 @@ def create_inbound_order(
             order_no=body.order_no,
         )
     except svc.InboundError as exc:
-        _raise_inbound(exc)
+        map_domain_error(exc, _INBOUND_RULES)
     return JSONResponse(content=ok(data))
 
 
@@ -65,7 +59,7 @@ def get_inbound_order(
     try:
         return ok(svc.get_order(session, order_id))
     except svc.InboundError as exc:
-        _raise_inbound(exc)
+        map_domain_error(exc, _INBOUND_RULES)
 
 
 @router.patch("/{order_id}")
@@ -90,7 +84,7 @@ def update_inbound_order(
             )
         )
     except svc.InboundError as exc:
-        _raise_inbound(exc)
+        map_domain_error(exc, _INBOUND_RULES)
 
 
 @router.post("/{order_id}/submit")
@@ -102,7 +96,7 @@ def submit_inbound_order(
     try:
         return ok(svc.submit_order(session, order_id))
     except svc.InboundError as exc:
-        _raise_inbound(exc)
+        map_domain_error(exc, _INBOUND_RULES)
 
 
 @router.post("/{order_id}/approve")
@@ -114,7 +108,7 @@ def approve_inbound_order(
     try:
         data = svc.approve_order(session, order_id)
     except svc.InboundError as exc:
-        _raise_inbound(exc)
+        map_domain_error(exc, _INBOUND_RULES)
     audit.record_operation(
         session,
         operator_id=current_user.id,
@@ -136,7 +130,7 @@ def cancel_inbound_order(
     try:
         return ok(svc.cancel_order(session, order_id))
     except svc.InboundError as exc:
-        _raise_inbound(exc)
+        map_domain_error(exc, _INBOUND_RULES)
 
 
 @router.post("/{order_id}/putaway")
@@ -145,11 +139,8 @@ def putaway_inbound_order(
     body: PutawayRequest,
     session: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_permissions(PERM_INBOUND_WRITE)),
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Depends(require_idempotency_key),
 ) -> dict:
-    if not idempotency_key:
-        body_fail, _ = fail(code=40000, message="缺少 Idempotency-Key", http_status=400)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=body_fail)
     try:
         return ok(
             svc.putaway(
@@ -163,4 +154,4 @@ def putaway_inbound_order(
             )
         )
     except svc.InboundError as exc:
-        _raise_inbound(exc)
+        map_domain_error(exc, _INBOUND_RULES)

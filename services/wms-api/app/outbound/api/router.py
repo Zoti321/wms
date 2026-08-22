@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -21,29 +21,16 @@ from app.platform.domain.permissions import (
     PERM_OUTBOUND_WRITE,
 )
 from app.shared.db import get_db
-from app.shared.response import fail, ok
+from app.shared.http_errors import DomainErrorRule, map_domain_error, require_idempotency_key
+from app.shared.response import ok
 
 router = APIRouter(prefix="/outbound-orders", tags=["outbound"])
 
-
-def _raise_outbound(exc: Exception) -> None:
-    if isinstance(exc, svc.OutboundNotFoundError):
-        body, _ = fail(code=40400, message=str(exc) or "资源不存在", http_status=404)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=body) from exc
-    if isinstance(exc, svc.OutboundConflictError):
-        body, _ = fail(code=40900, message=str(exc), http_status=409)
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=body) from exc
-    if isinstance(exc, svc.OutboundError):
-        body, _ = fail(code=40000, message=str(exc), http_status=400)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=body) from exc
-    raise exc
-
-
-def _require_idempotency_key(idempotency_key: str | None) -> str:
-    if not idempotency_key:
-        body_fail, _ = fail(code=40000, message="缺少 Idempotency-Key", http_status=400)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=body_fail)
-    return idempotency_key
+_OUTBOUND_RULES = (
+    DomainErrorRule(svc.OutboundNotFoundError, 40400, status.HTTP_404_NOT_FOUND, "资源不存在"),
+    DomainErrorRule(svc.OutboundConflictError, 40900, status.HTTP_409_CONFLICT),
+    DomainErrorRule(svc.OutboundError, 40000, status.HTTP_400_BAD_REQUEST),
+)
 
 
 @router.post("")
@@ -64,7 +51,7 @@ def create_outbound_order(
             order_no=body.order_no,
         )
     except svc.OutboundError as exc:
-        _raise_outbound(exc)
+        map_domain_error(exc, _OUTBOUND_RULES)
     return JSONResponse(content=ok(data))
 
 
@@ -77,7 +64,7 @@ def get_outbound_order(
     try:
         return ok(svc.get_order(session, order_id))
     except svc.OutboundError as exc:
-        _raise_outbound(exc)
+        map_domain_error(exc, _OUTBOUND_RULES)
 
 
 @router.patch("/{order_id}")
@@ -102,7 +89,7 @@ def update_outbound_order(
             )
         )
     except svc.OutboundError as exc:
-        _raise_outbound(exc)
+        map_domain_error(exc, _OUTBOUND_RULES)
 
 
 @router.post("/{order_id}/submit")
@@ -114,7 +101,7 @@ def submit_outbound_order(
     try:
         return ok(svc.submit_order(session, order_id))
     except svc.OutboundError as exc:
-        _raise_outbound(exc)
+        map_domain_error(exc, _OUTBOUND_RULES)
 
 
 @router.post("/{order_id}/approve")
@@ -123,19 +110,18 @@ def approve_outbound_order(
     body: ApproveRequest,
     session: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_permissions(PERM_OUTBOUND_APPROVE)),
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Depends(require_idempotency_key),
 ) -> dict:
-    key = _require_idempotency_key(idempotency_key)
     try:
         data = svc.approve_order(
             session,
             order_id,
             allocations=[item.model_dump() for item in body.allocations],
             operator_id=current_user.id,
-            idempotency_key=key,
+            idempotency_key=idempotency_key,
         )
     except svc.OutboundError as exc:
-        _raise_outbound(exc)
+        map_domain_error(exc, _OUTBOUND_RULES)
     if not data.get("replayed"):
         audit.record_operation(
             session,
@@ -155,9 +141,8 @@ def pick_outbound_order(
     body: PickRequest,
     session: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_permissions(PERM_OUTBOUND_WRITE)),
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Depends(require_idempotency_key),
 ) -> dict:
-    key = _require_idempotency_key(idempotency_key)
     try:
         return ok(
             svc.pick(
@@ -167,11 +152,11 @@ def pick_outbound_order(
                 location_id=body.location_id,
                 qty=body.qty,
                 operator_id=current_user.id,
-                idempotency_key=key,
+                idempotency_key=idempotency_key,
             )
         )
     except svc.OutboundError as exc:
-        _raise_outbound(exc)
+        map_domain_error(exc, _OUTBOUND_RULES)
 
 
 @router.post("/{order_id}/cancel")
@@ -179,17 +164,16 @@ def cancel_outbound_order(
     order_id: int,
     session: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_permissions(PERM_OUTBOUND_WRITE)),
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Depends(require_idempotency_key),
 ) -> dict:
-    key = _require_idempotency_key(idempotency_key)
     try:
         return ok(
             svc.cancel_order(
                 session,
                 order_id,
                 operator_id=current_user.id,
-                idempotency_key=key,
+                idempotency_key=idempotency_key,
             )
         )
     except svc.OutboundError as exc:
-        _raise_outbound(exc)
+        map_domain_error(exc, _OUTBOUND_RULES)

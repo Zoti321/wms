@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -29,20 +29,15 @@ from app.catalog.application import catalog_service as svc
 from app.platform.api.deps import CurrentUser, require_permissions
 from app.platform.domain.permissions import PERM_CATALOG_READ, PERM_CATALOG_WRITE
 from app.shared.db import get_db
-from app.shared.response import fail, ok
+from app.shared.http_errors import DomainErrorRule, map_domain_error
+from app.shared.response import ok
 
 router = APIRouter(tags=["catalog"])
 
-
-def _raise_catalog_error(exc: Exception) -> None:
-    if isinstance(exc, svc.CatalogNotFoundError):
-        message = str(exc) if str(exc) else "资源不存在"
-        body, _ = fail(code=40400, message=message, http_status=404)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=body) from exc
-    if isinstance(exc, svc.CatalogConflictError):
-        body, _ = fail(code=40900, message=str(exc) or "编码已存在", http_status=409)
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=body) from exc
-    raise exc
+_CATALOG_RULES = (
+    DomainErrorRule(svc.CatalogNotFoundError, 40400, status.HTTP_404_NOT_FOUND, "资源不存在"),
+    DomainErrorRule(svc.CatalogConflictError, 40900, status.HTTP_409_CONFLICT, "编码已存在"),
+)
 
 
 def _ok_item(model: type, data: dict[str, Any]) -> dict[str, Any]:
@@ -67,7 +62,7 @@ def create_warehouse(
             session, warehouse_code=body.warehouse_code, name=body.name
         )
     except svc.CatalogConflictError as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
     return JSONResponse(content=_ok_item(WarehouseData, data))
 
 
@@ -99,7 +94,7 @@ def get_warehouse(
     try:
         return _ok_item(WarehouseData, svc.get_warehouse(session, warehouse_id))
     except svc.CatalogNotFoundError as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
 
 
 @router.patch("/warehouses/{warehouse_id}")
@@ -115,7 +110,7 @@ def update_warehouse(
             svc.update_warehouse(session, warehouse_id, name=body.name),
         )
     except (svc.CatalogConflictError, svc.CatalogNotFoundError) as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
 
 
 @router.post("/warehouses/{warehouse_id}/deactivate")
@@ -129,7 +124,7 @@ def deactivate_warehouse(
             WarehouseData, svc.deactivate_warehouse(session, warehouse_id)
         )
     except (svc.CatalogConflictError, svc.CatalogNotFoundError) as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
 
 
 # --- skus ---
@@ -152,7 +147,7 @@ def create_sku(
             safety_stock=body.safety_stock,
         )
     except svc.CatalogConflictError as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
     return JSONResponse(content=_ok_item(SkuData, data))
 
 
@@ -185,7 +180,7 @@ def get_sku(
     try:
         return _ok_item(SkuData, svc.get_sku(session, sku_id))
     except svc.CatalogNotFoundError as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
 
 
 @router.patch("/skus/{sku_id}")
@@ -209,7 +204,7 @@ def update_sku(
             ),
         )
     except (svc.CatalogConflictError, svc.CatalogNotFoundError) as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
 
 
 @router.post("/skus/{sku_id}/deactivate")
@@ -221,7 +216,7 @@ def deactivate_sku(
     try:
         return _ok_item(SkuData, svc.deactivate_sku(session, sku_id))
     except svc.CatalogNotFoundError as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
 
 
 # --- locations ---
@@ -244,7 +239,7 @@ def create_location(
             space_status=body.space_status,
         )
     except (svc.CatalogConflictError, svc.CatalogNotFoundError) as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
     return JSONResponse(content=_ok_item(LocationData, data))
 
 
@@ -268,7 +263,7 @@ def list_locations(
             selectable=selectable,
         )
     except svc.CatalogConflictError as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
     return _ok_items(LocationData, items)
 
 
@@ -281,7 +276,7 @@ def get_location(
     try:
         return _ok_item(LocationData, svc.get_location(session, location_id))
     except svc.CatalogNotFoundError as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
 
 
 @router.patch("/locations/{location_id}")
@@ -304,7 +299,7 @@ def update_location(
             ),
         )
     except (svc.CatalogConflictError, svc.CatalogNotFoundError) as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
 
 
 @router.post("/locations/{location_id}/deactivate")
@@ -316,7 +311,7 @@ def deactivate_location(
     try:
         return _ok_item(LocationData, svc.deactivate_location(session, location_id))
     except svc.CatalogNotFoundError as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
 
 
 # --- suppliers ---
@@ -333,7 +328,7 @@ def create_supplier(
             session, supplier_code=body.supplier_code, name=body.name
         )
     except svc.CatalogConflictError as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
     return JSONResponse(content=_ok_item(SupplierData, data))
 
 
@@ -365,7 +360,7 @@ def get_supplier(
     try:
         return _ok_item(SupplierData, svc.get_supplier(session, supplier_id))
     except svc.CatalogNotFoundError as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
 
 
 @router.patch("/suppliers/{supplier_id}")
@@ -381,7 +376,7 @@ def update_supplier(
             svc.update_supplier(session, supplier_id, name=body.name),
         )
     except (svc.CatalogConflictError, svc.CatalogNotFoundError) as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
 
 
 @router.post("/suppliers/{supplier_id}/deactivate")
@@ -393,7 +388,7 @@ def deactivate_supplier(
     try:
         return _ok_item(SupplierData, svc.deactivate_supplier(session, supplier_id))
     except svc.CatalogNotFoundError as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
 
 
 # --- customers ---
@@ -410,7 +405,7 @@ def create_customer(
             session, customer_code=body.customer_code, name=body.name
         )
     except svc.CatalogConflictError as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
     return JSONResponse(content=_ok_item(CustomerData, data))
 
 
@@ -442,7 +437,7 @@ def get_customer(
     try:
         return _ok_item(CustomerData, svc.get_customer(session, customer_id))
     except svc.CatalogNotFoundError as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
 
 
 @router.patch("/customers/{customer_id}")
@@ -458,7 +453,7 @@ def update_customer(
             svc.update_customer(session, customer_id, name=body.name),
         )
     except (svc.CatalogConflictError, svc.CatalogNotFoundError) as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
 
 
 @router.post("/customers/{customer_id}/deactivate")
@@ -470,4 +465,4 @@ def deactivate_customer(
     try:
         return _ok_item(CustomerData, svc.deactivate_customer(session, customer_id))
     except svc.CatalogNotFoundError as exc:
-        _raise_catalog_error(exc)
+        map_domain_error(exc, _CATALOG_RULES)
