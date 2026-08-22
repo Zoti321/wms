@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.platform.api.deps import CurrentUser, get_current_user
+from app.platform.api.deps import CurrentUser, require_permissions
+from app.platform.application import audit_service as audit
+from app.platform.domain.permissions import (
+    PERM_STOCKTAKE_APPROVE,
+    PERM_STOCKTAKE_READ,
+    PERM_STOCKTAKE_WRITE,
+)
 from app.shared.db import get_db
 from app.shared.response import fail, ok
 from app.stocktake.api.schemas import RecordCountsRequest, StocktakeOrderCreate
@@ -42,7 +48,7 @@ def _require_idempotency_key(idempotency_key: str | None) -> str:
 def create_stocktake(
     body: StocktakeOrderCreate,
     session: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(require_permissions(PERM_STOCKTAKE_WRITE)),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> JSONResponse:
     key = _require_idempotency_key(idempotency_key)
@@ -65,7 +71,7 @@ def create_stocktake(
 def get_stocktake(
     order_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_STOCKTAKE_READ)),
 ) -> dict:
     try:
         return ok(svc.get_order(session, order_id))
@@ -78,7 +84,7 @@ def record_stocktake_counts(
     order_id: int,
     body: RecordCountsRequest,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_STOCKTAKE_WRITE)),
 ) -> dict:
     try:
         return ok(
@@ -96,29 +102,38 @@ def record_stocktake_counts(
 def approve_stocktake(
     order_id: int,
     session: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(require_permissions(PERM_STOCKTAKE_APPROVE)),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     key = _require_idempotency_key(idempotency_key)
     try:
-        return ok(
-            svc.approve_order(
-                session,
-                order_id,
-                operator_id=current_user.id,
-                role_code=current_user.role_code,
-                idempotency_key=key,
-            )
+        data = svc.approve_order(
+            session,
+            order_id,
+            operator_id=current_user.id,
+            role_code=current_user.role_code,
+            idempotency_key=key,
         )
     except svc.StocktakeError as exc:
         _raise_stocktake(exc)
+    if not data.get("replayed"):
+        audit.record_operation(
+            session,
+            operator_id=current_user.id,
+            operator_name=current_user.username,
+            action=audit.ACTION_STOCKTAKE_APPROVE,
+            resource_type="stocktake_order",
+            resource_id=order_id,
+            commit=True,
+        )
+    return ok(data)
 
 
 @router.post("/{order_id}/cancel")
 def cancel_stocktake(
     order_id: int,
     session: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(require_permissions(PERM_STOCKTAKE_WRITE)),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     key = _require_idempotency_key(idempotency_key)

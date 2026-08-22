@@ -13,7 +13,13 @@ from app.outbound.api.schemas import (
     PickRequest,
 )
 from app.outbound.application import outbound_service as svc
-from app.platform.api.deps import CurrentUser, get_current_user
+from app.platform.api.deps import CurrentUser, require_permissions
+from app.platform.application import audit_service as audit
+from app.platform.domain.permissions import (
+    PERM_OUTBOUND_APPROVE,
+    PERM_OUTBOUND_READ,
+    PERM_OUTBOUND_WRITE,
+)
 from app.shared.db import get_db
 from app.shared.response import fail, ok
 
@@ -44,7 +50,7 @@ def _require_idempotency_key(idempotency_key: str | None) -> str:
 def create_outbound_order(
     body: OutboundOrderCreate,
     session: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(require_permissions(PERM_OUTBOUND_WRITE)),
 ) -> JSONResponse:
     try:
         data = svc.create_order(
@@ -66,7 +72,7 @@ def create_outbound_order(
 def get_outbound_order(
     order_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_OUTBOUND_READ)),
 ) -> dict:
     try:
         return ok(svc.get_order(session, order_id))
@@ -79,7 +85,7 @@ def update_outbound_order(
     order_id: int,
     body: OutboundOrderUpdate,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_OUTBOUND_WRITE)),
 ) -> dict:
     try:
         return ok(
@@ -103,7 +109,7 @@ def update_outbound_order(
 def submit_outbound_order(
     order_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_OUTBOUND_WRITE)),
 ) -> dict:
     try:
         return ok(svc.submit_order(session, order_id))
@@ -116,22 +122,31 @@ def approve_outbound_order(
     order_id: int,
     body: ApproveRequest,
     session: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(require_permissions(PERM_OUTBOUND_APPROVE)),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     key = _require_idempotency_key(idempotency_key)
     try:
-        return ok(
-            svc.approve_order(
-                session,
-                order_id,
-                allocations=[item.model_dump() for item in body.allocations],
-                operator_id=current_user.id,
-                idempotency_key=key,
-            )
+        data = svc.approve_order(
+            session,
+            order_id,
+            allocations=[item.model_dump() for item in body.allocations],
+            operator_id=current_user.id,
+            idempotency_key=key,
         )
     except svc.OutboundError as exc:
         _raise_outbound(exc)
+    if not data.get("replayed"):
+        audit.record_operation(
+            session,
+            operator_id=current_user.id,
+            operator_name=current_user.username,
+            action=audit.ACTION_OUTBOUND_APPROVE,
+            resource_type="outbound_order",
+            resource_id=order_id,
+            commit=True,
+        )
+    return ok(data)
 
 
 @router.post("/{order_id}/pick")
@@ -139,7 +154,7 @@ def pick_outbound_order(
     order_id: int,
     body: PickRequest,
     session: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(require_permissions(PERM_OUTBOUND_WRITE)),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     key = _require_idempotency_key(idempotency_key)
@@ -163,7 +178,7 @@ def pick_outbound_order(
 def cancel_outbound_order(
     order_id: int,
     session: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(require_permissions(PERM_OUTBOUND_WRITE)),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     key = _require_idempotency_key(idempotency_key)

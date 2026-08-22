@@ -34,6 +34,7 @@ _TRUNCATE_TABLES = (
     "inventory_alert",
     "inventory",
     "idempotency_record",
+    "operation_log",
     "location",
     "sku",
     "supplier",
@@ -73,6 +74,37 @@ def database_url() -> str:
     return url
 
 
+def _ensure_platform_seeds(database_url: str) -> None:
+    """迁移已执行过时，补回被 truncate 清掉的字典等非业务种子。"""
+    engine = create_engine(database_url, pool_pre_ping=True)
+    seeds = (
+        ("unit", "PCS", "件", 1),
+        ("unit", "BOX", "箱", 2),
+        ("inbound_order_type", "purchase", "采购入库", 1),
+        ("inbound_order_type", "return", "退货入库", 2),
+        ("cancel_reason", "customer_cancel", "客户取消", 1),
+        ("cancel_reason", "stock_shortage", "库存不足", 2),
+    )
+    with engine.begin() as conn:
+        for dict_type, code, name, sort_order in seeds:
+            exists = conn.execute(
+                text(
+                    "SELECT 1 FROM dict_item WHERE dict_type=:t AND code=:c LIMIT 1"
+                ),
+                {"t": dict_type, "c": code},
+            ).first()
+            if exists:
+                continue
+            conn.execute(
+                text(
+                    "INSERT INTO dict_item (dict_type, code, name, sort_order, status) "
+                    "VALUES (:t, :c, :n, :s, 1)"
+                ),
+                {"t": dict_type, "c": code, "n": name, "s": sort_order},
+            )
+    engine.dispose()
+
+
 @pytest.fixture(scope="session")
 def migrated_database(database_url: str) -> str:
     os.environ["DATABASE_URL"] = database_url
@@ -83,6 +115,7 @@ def migrated_database(database_url: str) -> str:
     cfg = Config("alembic.ini")
     cfg.set_main_option("sqlalchemy.url", database_url)
     command.upgrade(cfg, "head")
+    _ensure_platform_seeds(database_url)
     return database_url
 
 

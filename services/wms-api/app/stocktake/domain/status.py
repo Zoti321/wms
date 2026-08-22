@@ -11,7 +11,5 @@ APPROVE_ALLOWED = frozenset({STATUS_COUNTING})
 CANCEL_ALLOWED = frozenset({STATUS_COUNTING})
 TERMINAL_STATUSES = frozenset({STATUS_APPROVED, STATUS_CANCELLED})
 
-# 粗粒度角色占位：主管可审核；admin 种子兼容开发环境。
-APPROVE_ROLE_CODES = frozenset({"admin", "supervisor"})
-
+# 粗粒度角色占位已迁至 platform.permissions；保留常量文件仅单据状态。
 LOCK_REF_TYPE = "STOCKTAKE"

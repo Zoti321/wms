@@ -20,8 +20,8 @@ uv run uvicorn app.main:app --reload --app-dir .
 主数据（需 Bearer）：`/api/v1/warehouses`、`/skus`、`/locations`、`/suppliers`、`/customers`；删除一律 `POST .../{id}/deactivate`（停用，不物理删除）。库位空间状态字段为 `space_status`（idle/occupied/frozen），勿与库存冻结数量混淆。  
 入库：`/api/v1/inbound-orders`（submit / approve / putaway / cancel）；上架必须带 `Idempotency-Key`，经库存 `increase` 记账。  
 出库：`/api/v1/outbound-orders`（submit / approve / pick / cancel）；审核=分配、拣货=实扣、取消未拣=释放预留；approve/pick/cancel 必须带 `Idempotency-Key`。  
-盘点：`/api/v1/stocktakes`（创建并加盘点锁 / counts 实盘 / approve 调账释锁 / cancel 释锁）；create/approve/cancel 必须带 `Idempotency-Key`；审核角色码占位为 `admin`/`supervisor`。  
-库存查询：`GET /api/v1/inventories`、`GET /api/v1/inventories/ledgers`。
+盘点：`/api/v1/stocktakes`（创建并加盘点锁 / counts 实盘 / approve 调账释锁 / cancel 释锁）；create/approve/cancel 必须带 `Idempotency-Key`；审核需 `stocktake:approve`（admin/supervisor）。  
+库存查询：`GET /api/v1/inventories`、`GET /api/v1/inventories/ledgers`、`GET /api/v1/inventories/alerts`。
 
 ### OpenAPI 交互文档
 
@@ -41,15 +41,18 @@ uv run uvicorn app.main:app --reload --app-dir .
 API 全栈 profile 覆盖为 `mysql+pymysql://wms:wms@mysql:3306/wms?charset=utf8mb4`。  
 若本机曾用旧凭据初始化过数据卷，需 `docker compose down -v` 后重建（会清空本地库）。
 
-### 开发种子管理员
+### 开发种子账号
 
-迁移在非生产环境（`APP_ENV` 非 `prod`/`production`）写入开发种子账号：
+迁移在非生产环境（`APP_ENV` 非 `prod`/`production`）写入开发种子账号（口令均为 `Admin@123456`）：
 
-| 字段 | 值 |
-|---|---|
-| username | `admin` |
-| password | `Admin@123456` |
-| role | `admin` |
+| username | role | 说明 |
+|---|---|---|
+| `admin` | `admin` | 系统管理员（全权限） |
+| `supervisor` | `supervisor` | 仓库主管（可审核） |
+| `operator` | `operator` | 仓管员（执行入出库，不可审核） |
+| `viewer` | `viewer` | 只读（查询，不可写） |
+
+操作日志：`GET /api/v1/operation-logs`；字典：`GET /api/v1/dictionaries`；用户角色：`GET /api/v1/users`、`PATCH /api/v1/users/{id}/role`（管理员）。
 
 **请勿把生产口令写进仓库。** 修改种子密码示例：
 

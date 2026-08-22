@@ -26,7 +26,8 @@ from app.catalog.api.schemas import (
     WarehouseUpdate,
 )
 from app.catalog.application import catalog_service as svc
-from app.platform.api.deps import CurrentUser, get_current_user
+from app.platform.api.deps import CurrentUser, require_permissions
+from app.platform.domain.permissions import PERM_CATALOG_READ, PERM_CATALOG_WRITE
 from app.shared.db import get_db
 from app.shared.response import fail, ok
 
@@ -59,7 +60,7 @@ def _ok_items(model: type, items: list[dict[str, Any]]) -> dict[str, Any]:
 def create_warehouse(
     body: WarehouseCreate,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
 ) -> JSONResponse:
     try:
         data = svc.create_warehouse(
@@ -77,7 +78,7 @@ def list_warehouses(
     entity_status: int | None = Query(default=None, alias="status", ge=0, le=1),
     selectable: bool = False,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
 ) -> dict:
     items = svc.list_warehouses(
         session,
@@ -93,7 +94,7 @@ def list_warehouses(
 def get_warehouse(
     warehouse_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
 ) -> dict:
     try:
         return _ok_item(WarehouseData, svc.get_warehouse(session, warehouse_id))
@@ -106,7 +107,7 @@ def update_warehouse(
     warehouse_id: int,
     body: WarehouseUpdate,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
 ) -> dict:
     try:
         return _ok_item(
@@ -121,7 +122,7 @@ def update_warehouse(
 def deactivate_warehouse(
     warehouse_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
 ) -> dict:
     try:
         return _ok_item(
@@ -138,7 +139,7 @@ def deactivate_warehouse(
 def create_sku(
     body: SkuCreate,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
 ) -> JSONResponse:
     try:
         data = svc.create_sku(
@@ -162,7 +163,7 @@ def list_skus(
     entity_status: int | None = Query(default=None, alias="status", ge=0, le=1),
     selectable: bool = False,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
 ) -> dict:
     # SKU 跨仓共享；「按仓筛可用 SKU」= 受保护列表 + selectable（启用中）
     items = svc.list_skus(
@@ -179,7 +180,7 @@ def list_skus(
 def get_sku(
     sku_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
 ) -> dict:
     try:
         return _ok_item(SkuData, svc.get_sku(session, sku_id))
@@ -192,7 +193,7 @@ def update_sku(
     sku_id: int,
     body: SkuUpdate,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
 ) -> dict:
     try:
         return _ok_item(
@@ -215,7 +216,7 @@ def update_sku(
 def deactivate_sku(
     sku_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
 ) -> dict:
     try:
         return _ok_item(SkuData, svc.deactivate_sku(session, sku_id))
@@ -230,7 +231,7 @@ def deactivate_sku(
 def create_location(
     body: LocationCreate,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
 ) -> JSONResponse:
     try:
         data = svc.create_location(
@@ -255,7 +256,7 @@ def list_locations(
     space_status: str | None = None,
     selectable: bool = False,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
 ) -> dict:
     try:
         items = svc.list_locations(
@@ -275,7 +276,7 @@ def list_locations(
 def get_location(
     location_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
 ) -> dict:
     try:
         return _ok_item(LocationData, svc.get_location(session, location_id))
@@ -288,7 +289,7 @@ def update_location(
     location_id: int,
     body: LocationUpdate,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
 ) -> dict:
     try:
         return _ok_item(
@@ -310,7 +311,7 @@ def update_location(
 def deactivate_location(
     location_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
 ) -> dict:
     try:
         return _ok_item(LocationData, svc.deactivate_location(session, location_id))
@@ -325,7 +326,7 @@ def deactivate_location(
 def create_supplier(
     body: SupplierCreate,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
 ) -> JSONResponse:
     try:
         data = svc.create_supplier(
@@ -343,7 +344,7 @@ def list_suppliers(
     entity_status: int | None = Query(default=None, alias="status", ge=0, le=1),
     selectable: bool = False,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
 ) -> dict:
     items = svc.list_suppliers(
         session,
@@ -359,7 +360,7 @@ def list_suppliers(
 def get_supplier(
     supplier_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
 ) -> dict:
     try:
         return _ok_item(SupplierData, svc.get_supplier(session, supplier_id))
@@ -372,7 +373,7 @@ def update_supplier(
     supplier_id: int,
     body: SupplierUpdate,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
 ) -> dict:
     try:
         return _ok_item(
@@ -387,7 +388,7 @@ def update_supplier(
 def deactivate_supplier(
     supplier_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
 ) -> dict:
     try:
         return _ok_item(SupplierData, svc.deactivate_supplier(session, supplier_id))
@@ -402,7 +403,7 @@ def deactivate_supplier(
 def create_customer(
     body: CustomerCreate,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
 ) -> JSONResponse:
     try:
         data = svc.create_customer(
@@ -420,7 +421,7 @@ def list_customers(
     entity_status: int | None = Query(default=None, alias="status", ge=0, le=1),
     selectable: bool = False,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
 ) -> dict:
     items = svc.list_customers(
         session,
@@ -436,7 +437,7 @@ def list_customers(
 def get_customer(
     customer_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
 ) -> dict:
     try:
         return _ok_item(CustomerData, svc.get_customer(session, customer_id))
@@ -449,7 +450,7 @@ def update_customer(
     customer_id: int,
     body: CustomerUpdate,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
 ) -> dict:
     try:
         return _ok_item(
@@ -464,7 +465,7 @@ def update_customer(
 def deactivate_customer(
     customer_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_CATALOG_WRITE)),
 ) -> dict:
     try:
         return _ok_item(CustomerData, svc.deactivate_customer(session, customer_id))

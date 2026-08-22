@@ -12,9 +12,9 @@ from app.catalog.domain.status import ActiveStatus
 from app.catalog.infrastructure.models import Location, Warehouse
 from app.inventory.application import inventory_service as inv
 from app.inventory.application import lock as lock_port
+from app.platform.domain.permissions import PERM_STOCKTAKE_APPROVE, has_permission
 from app.stocktake.domain.status import (
     APPROVE_ALLOWED,
-    APPROVE_ROLE_CODES,
     CANCEL_ALLOWED,
     EDITABLE_STATUSES,
     LOCK_REF_TYPE,
@@ -212,7 +212,7 @@ def approve_order(
     role_code: str,
     idempotency_key: str,
 ) -> dict:
-    if role_code not in APPROVE_ROLE_CODES:
+    if not has_permission(role_code, PERM_STOCKTAKE_APPROVE):
         raise StocktakeForbiddenError("仅仓库主管可审核盘点")
 
     replay = inv.load_json_idempotent(

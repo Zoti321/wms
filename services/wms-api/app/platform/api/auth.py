@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.platform.api.deps import CurrentUser, get_current_user
 from app.platform.api.schemas import LoginRequest, MeData, TokenData
+from app.platform.application import audit_service as audit
 from app.platform.application.auth_service import InvalidCredentialsError, login_with_password
 from app.shared.config import Settings, get_settings
 from app.shared.db import get_db
@@ -32,6 +33,16 @@ def login(
     except InvalidCredentialsError:
         payload, http_status = fail(message="用户名或密码错误")
         return JSONResponse(status_code=http_status, content=payload)
+
+    audit.record_operation(
+        session,
+        operator_id=result.user_id,
+        operator_name=result.username,
+        action=audit.ACTION_LOGIN,
+        resource_type="user",
+        resource_id=result.user_id,
+        commit=True,
+    )
 
     return JSONResponse(
         content=ok(TokenData(access_token=result.access_token, token_type=result.token_type).model_dump())

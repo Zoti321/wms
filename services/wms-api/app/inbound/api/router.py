@@ -8,7 +8,13 @@ from sqlalchemy.orm import Session
 
 from app.inbound.api.schemas import InboundOrderCreate, InboundOrderUpdate, PutawayRequest
 from app.inbound.application import inbound_service as svc
-from app.platform.api.deps import CurrentUser, get_current_user
+from app.platform.api.deps import CurrentUser, require_permissions
+from app.platform.application import audit_service as audit
+from app.platform.domain.permissions import (
+    PERM_INBOUND_APPROVE,
+    PERM_INBOUND_READ,
+    PERM_INBOUND_WRITE,
+)
 from app.shared.db import get_db
 from app.shared.response import fail, ok
 
@@ -32,7 +38,7 @@ def _raise_inbound(exc: Exception) -> None:
 def create_inbound_order(
     body: InboundOrderCreate,
     session: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(require_permissions(PERM_INBOUND_WRITE)),
 ) -> JSONResponse:
     try:
         data = svc.create_order(
@@ -54,7 +60,7 @@ def create_inbound_order(
 def get_inbound_order(
     order_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_INBOUND_READ)),
 ) -> dict:
     try:
         return ok(svc.get_order(session, order_id))
@@ -67,7 +73,7 @@ def update_inbound_order(
     order_id: int,
     body: InboundOrderUpdate,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_INBOUND_WRITE)),
 ) -> dict:
     try:
         return ok(
@@ -91,7 +97,7 @@ def update_inbound_order(
 def submit_inbound_order(
     order_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_INBOUND_WRITE)),
 ) -> dict:
     try:
         return ok(svc.submit_order(session, order_id))
@@ -103,19 +109,29 @@ def submit_inbound_order(
 def approve_inbound_order(
     order_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(require_permissions(PERM_INBOUND_APPROVE)),
 ) -> dict:
     try:
-        return ok(svc.approve_order(session, order_id))
+        data = svc.approve_order(session, order_id)
     except svc.InboundError as exc:
         _raise_inbound(exc)
+    audit.record_operation(
+        session,
+        operator_id=current_user.id,
+        operator_name=current_user.username,
+        action=audit.ACTION_INBOUND_APPROVE,
+        resource_type="inbound_order",
+        resource_id=order_id,
+        commit=True,
+    )
+    return ok(data)
 
 
 @router.post("/{order_id}/cancel")
 def cancel_inbound_order(
     order_id: int,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_INBOUND_WRITE)),
 ) -> dict:
     try:
         return ok(svc.cancel_order(session, order_id))
@@ -128,7 +144,7 @@ def putaway_inbound_order(
     order_id: int,
     body: PutawayRequest,
     session: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(require_permissions(PERM_INBOUND_WRITE)),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     if not idempotency_key:

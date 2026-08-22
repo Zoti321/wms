@@ -21,6 +21,7 @@ from app.inbound.api.router import router as inbound_router
 from app.inventory.api.router import router as inventory_router
 from app.outbound.api.router import router as outbound_router
 from app.platform.api.auth import router as auth_router
+from app.platform.api.router import router as platform_router
 from app.shared.config import get_settings
 from app.stocktake.api.router import router as stocktake_router
 
@@ -38,6 +39,7 @@ OPENAPI_DESCRIPTION = """
 
 OPENAPI_TAGS = [
     {"name": "auth", "description": "登录与当前操作者"},
+    {"name": "platform", "description": "角色用户、操作日志、基础字典"},
     {"name": "catalog", "description": "主数据：仓库 / SKU / 库位 / 供应商 / 客户"},
     {"name": "inventory", "description": "库存余额、流水与预警查询（数量账唯一所有者）"},
     {"name": "inbound", "description": "入库单：提交、审核、上架、取消"},
@@ -89,6 +91,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     application.include_router(auth_router, prefix="/api/v1")
+    application.include_router(platform_router, prefix="/api/v1")
     application.include_router(catalog_router, prefix="/api/v1")
     application.include_router(inventory_router, prefix="/api/v1")
     application.include_router(inbound_router, prefix="/api/v1")

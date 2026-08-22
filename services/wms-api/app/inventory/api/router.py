@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.inventory.application import inventory_service as svc
-from app.platform.api.deps import CurrentUser, get_current_user
+from app.platform.api.deps import CurrentUser, require_permissions
+from app.platform.domain.permissions import PERM_INVENTORY_READ
 from app.shared.db import get_db
 from app.shared.response import ok
 
@@ -17,7 +18,7 @@ router = APIRouter(tags=["inventory"])
 def list_inventory_alerts(
     warehouse_id: int | None = None,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_INVENTORY_READ)),
 ) -> dict:
     items = svc.list_alerts(session, warehouse_id=warehouse_id)
     return ok({"items": items})
@@ -29,7 +30,7 @@ def list_inventories(
     sku_id: int | None = None,
     location_id: int | None = None,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_INVENTORY_READ)),
 ) -> dict:
     items = svc.list_balances(
         session,
@@ -48,7 +49,7 @@ def list_inventory_ledgers(
     ref_id: int | None = None,
     ref_type: str | None = None,
     session: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_permissions(PERM_INVENTORY_READ)),
 ) -> dict:
     items = svc.list_ledgers(
         session,

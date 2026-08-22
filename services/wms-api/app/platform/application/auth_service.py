@@ -15,6 +15,8 @@ from app.shared.config import Settings
 @dataclass(frozen=True)
 class LoginResult:
     access_token: str
+    user_id: int
+    username: str
     token_type: str = "bearer"
 
 
@@ -44,4 +46,8 @@ def login_with_password(
         settings=settings,
         extra={"username": user.username},
     )
-    return LoginResult(access_token=token)
+    return LoginResult(
+        access_token=token,
+        user_id=user.id,
+        username=user.username,
+    )

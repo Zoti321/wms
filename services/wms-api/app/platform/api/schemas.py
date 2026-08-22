@@ -19,3 +19,7 @@ class MeData(BaseModel):
     id: int
     username: str
     role_code: str
+
+
+class AssignRoleRequest(BaseModel):
+    role_code: str = Field(min_length=1, max_length=64)
