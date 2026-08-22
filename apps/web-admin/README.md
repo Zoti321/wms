@@ -5,7 +5,7 @@ Vue 3 + TypeScript + Vite + Element Plus 管理端，见仓库 `docs/adr/0003-we
 ## 开发
 
 ```bash
-# 仓库根目录
+cd apps
 pnpm install
 pnpm dev:web-admin
 ```
@@ -13,6 +13,8 @@ pnpm dev:web-admin
 默认 `http://localhost:5173`，API 经 Vite 代理转发至 `http://localhost:8000/api`。
 
 ## 脚本
+
+在 `apps/` 目录执行：
 
 | 命令 | 说明 |
 |------|------|

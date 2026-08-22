@@ -11,7 +11,7 @@
 - 统一 API 信封 `{ code, message, data, traceId }`（`services/wms-api/app/shared/response.py`）
 - `/auth/me` 返回 `permissions: string[]`，与接口 `require_permissions` 对齐
 - CORS 开发默认 `http://localhost:5173`（`services/wms-api/app/shared/config.py`）
-- Monorepo：`apps/web-admin/` + `services/wms-api/`，前端 pnpm、后端 uv
+- Monorepo：`apps/`（pnpm workspace）+ `services/wms-api/`（uv）
 
 ## 推荐结论（已采纳）
 
@@ -79,7 +79,7 @@ MVP 无 Refresh Token，480 分钟过期后重登可接受；memory-only 会导�
 
 ### pnpm workspace vs Turborepo
 
-[pnpm Workspaces](https://pnpm.io/workspaces)：根目录 `pnpm-workspace.yaml` 即可联合 `apps/*`；MVP 仅一个前端 app。
+[pnpm Workspaces](https://pnpm.io/workspaces)：`apps/pnpm-workspace.yaml` 联合 `web-admin`（及后续 `mini-program`）；MVP 仅一个前端 app。
 
 Turborepo 擅长多包缓存与并行 task；待 `apps/mini-program/` 与 web-admin 并行 CI 再评估。
 

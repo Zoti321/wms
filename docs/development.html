@@ -79,12 +79,12 @@
           <tr><td>缓存 / 队列</td><td>MVP <strong>不上</strong> Redis / Celery</td><td>幂等键与业务数据均落 MySQL；库存预警在余额变更后同步判定</td></tr>
           <tr><td>测试</td><td>pytest + httpx</td><td>API 与库存分配/实扣等集成测试；测试库可回滚或独立库</td></tr>
           <tr><td>文档</td><td>OpenAPI 3（FastAPI 自动生成）</td><td>前后端/小程序契约</td></tr>
-          <tr><td>工程</td><td>Monorepo（前端 pnpm；后端 API 用 uv）</td><td>packages 按交付面与领域上下文组织</td></tr>
+          <tr><td>工程</td><td>Monorepo（<code>apps/</code> 下 pnpm workspace；后端 API 用 uv）</td><td>交付面按 apps / services 组织</td></tr>
           <tr><td>部署</td><td>Docker Compose + uvicorn</td><td>MVP：api + mysql；生产可再评估多 worker</td></tr>
         </tbody>
       </table>
       <p>后端选型已定为 <strong>FastAPI + MySQL 8.0 + uv</strong>：驱动 PyMySQL，ORM 写路径同步 Session，密码 bcrypt，进程 uvicorn，配置 pydantic-settings，时间 UTC，测试 pytest + httpx。MVP 不上 Redis。预警在库存记账成功后同步判定。权衡见 <a href="adr/0001-fastapi-sync-mysql-no-redis.md">ADR-0001</a>。</p>
-      <p>网页后台选型已定为 <strong>Vue 3 + TypeScript + Vite + Element Plus</strong>：pnpm workspace；<code>openapi-typescript</code> + axios 薄封装对接统一信封；Pinia 承载 auth/app 上下文；Access Token 存 sessionStorage；静态路由 + <code>meta.permission</code> 与后端权限码对齐。权衡见 <a href="adr/0003-web-admin-vue-element-plus.md">ADR-0003</a>；调研过程见 <a href="research/web-admin-stack.md">web-admin-stack.md</a>。</p>
+      <p>网页后台选型已定为 <strong>Vue 3 + TypeScript + Vite + Element Plus</strong>：<code>apps/</code> 目录 pnpm workspace；<code>openapi-typescript</code> + axios 薄封装对接统一信封；Pinia 承载 auth/app 上下文；Access Token 存 sessionStorage；静态路由 + <code>meta.permission</code> 与后端权限码对齐。权衡见 <a href="adr/0003-web-admin-vue-element-plus.md">ADR-0003</a>；调研过程见 <a href="research/web-admin-stack.md">web-admin-stack.md</a>。</p>
       <p><strong>库存事务、软分配、流水表、盘点锁</strong>为不可妥协的设计约束。</p>
 
       <h2 id="d3">3. 系统架构</h2>
@@ -265,6 +265,8 @@ CREATE TABLE inventory_ledger (
       <h2 id="d8">8. 工程结构（Monorepo 示例）</h2>
       <pre>wms/
 ├── apps/
+│   ├── package.json         # 前端 pnpm workspace 根
+│   ├── pnpm-workspace.yaml
 │   ├── web-admin/           # Vue3 网页后台
 │   └── mini-program/        # 小程序作业端
 ├── services/

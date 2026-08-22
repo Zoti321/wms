@@ -1,7 +1,10 @@
 {
-  "name": "wms-monorepo",
+  "name": "wms-apps",
   "private": true,
   "packageManager": "pnpm@10.22.0",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "dev:web-admin": "pnpm --filter web-admin dev",
     "build:web-admin": "pnpm --filter web-admin build",
