@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.platform.domain.permissions import ROLE_ADMIN
 from app.platform.infrastructure.models import Role, User
 from app.platform.infrastructure.security import hash_password
+from app.shared.pagination import paginate, paginated_payload
 
 
 class UserError(Exception):
@@ -123,8 +124,17 @@ def assign_role(session: Session, *, user_id: int, role_code: str) -> dict:
     return _user_to_dict(user)
 
 
-def list_users(session: Session) -> list[dict]:
-    rows = session.scalars(
-        select(User).options(joinedload(User.role)).order_by(User.id.asc())
-    ).all()
-    return [_user_to_dict(row) for row in rows]
+def list_users(
+    session: Session,
+    *,
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
+    stmt = select(User).options(joinedload(User.role)).order_by(User.id.asc())
+    rows, total = paginate(session, stmt, page=page, page_size=page_size)
+    return paginated_payload(
+        [_user_to_dict(row) for row in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )

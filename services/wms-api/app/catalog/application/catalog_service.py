@@ -22,6 +22,7 @@ from app.catalog.infrastructure.models import (
     Supplier,
     Warehouse,
 )
+from app.shared.pagination import paginate, paginated_payload
 
 T = TypeVar("T")
 
@@ -98,7 +99,9 @@ def list_warehouses(
     name: str | None = None,
     status: int | None = None,
     selectable: bool = False,
-) -> list[dict[str, Any]]:
+    page: int = 1,
+    page_size: int = 20,
+) -> dict[str, Any]:
     stmt = _apply_list_filters(
         select(Warehouse),
         model=Warehouse,
@@ -108,7 +111,13 @@ def list_warehouses(
         selectable=selectable,
         code_attr="warehouse_code",
     )
-    return [warehouse_to_dict(row) for row in session.scalars(stmt).all()]
+    rows, total = paginate(session, stmt, page=page, page_size=page_size)
+    return paginated_payload(
+        [warehouse_to_dict(row) for row in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def update_warehouse(
@@ -191,7 +200,9 @@ def list_skus(
     name: str | None = None,
     status: int | None = None,
     selectable: bool = False,
-) -> list[dict[str, Any]]:
+    page: int = 1,
+    page_size: int = 20,
+) -> dict[str, Any]:
     stmt = _apply_list_filters(
         select(Sku),
         model=Sku,
@@ -201,7 +212,13 @@ def list_skus(
         selectable=selectable,
         code_attr="sku_code",
     )
-    return [sku_to_dict(row) for row in session.scalars(stmt).all()]
+    rows, total = paginate(session, stmt, page=page, page_size=page_size)
+    return paginated_payload(
+        [sku_to_dict(row) for row in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def update_sku(
@@ -291,7 +308,9 @@ def list_locations(
     status: int | None = None,
     space_status: str | None = None,
     selectable: bool = False,
-) -> list[dict[str, Any]]:
+    page: int = 1,
+    page_size: int = 20,
+) -> dict[str, Any]:
     stmt = select(Location)
     if warehouse_id is not None:
         stmt = stmt.where(Location.warehouse_id == warehouse_id)
@@ -308,7 +327,13 @@ def list_locations(
             Location.space_status == API_TO_SPACE_STATUS[space_status]
         )
     stmt = stmt.order_by(Location.id.asc())
-    return [location_to_dict(row) for row in session.scalars(stmt).all()]
+    rows, total = paginate(session, stmt, page=page, page_size=page_size)
+    return paginated_payload(
+        [location_to_dict(row) for row in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def update_location(
@@ -370,7 +395,9 @@ def list_suppliers(
     name: str | None = None,
     status: int | None = None,
     selectable: bool = False,
-) -> list[dict[str, Any]]:
+    page: int = 1,
+    page_size: int = 20,
+) -> dict[str, Any]:
     stmt = _apply_list_filters(
         select(Supplier),
         model=Supplier,
@@ -380,7 +407,13 @@ def list_suppliers(
         selectable=selectable,
         code_attr="supplier_code",
     )
-    return [supplier_to_dict(row) for row in session.scalars(stmt).all()]
+    rows, total = paginate(session, stmt, page=page, page_size=page_size)
+    return paginated_payload(
+        [supplier_to_dict(row) for row in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def update_supplier(
@@ -430,7 +463,9 @@ def list_customers(
     name: str | None = None,
     status: int | None = None,
     selectable: bool = False,
-) -> list[dict[str, Any]]:
+    page: int = 1,
+    page_size: int = 20,
+) -> dict[str, Any]:
     stmt = _apply_list_filters(
         select(Customer),
         model=Customer,
@@ -440,7 +475,13 @@ def list_customers(
         selectable=selectable,
         code_attr="customer_code",
     )
-    return [customer_to_dict(row) for row in session.scalars(stmt).all()]
+    rows, total = paginate(session, stmt, page=page, page_size=page_size)
+    return paginated_payload(
+        [customer_to_dict(row) for row in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def update_customer(

@@ -27,6 +27,7 @@ from app.platform.domain.permissions import (
     PERM_USER_WRITE,
 )
 from app.shared.db import get_db
+from app.shared.pagination import pagination_query
 from app.shared.response import fail, ok
 
 router = APIRouter(tags=["platform"])
@@ -90,27 +91,37 @@ def list_operation_logs(
     action: str | None = None,
     created_from: datetime | None = Query(default=None),
     created_to: datetime | None = Query(default=None),
+    paging: tuple[int, int] = Depends(pagination_query),
     session: Session = Depends(get_db),
     _: CurrentUser = Depends(require_permissions(PERM_AUDIT_READ)),
 ) -> dict:
-    items = audit.list_operation_logs(
-        session,
-        operator_id=operator_id,
-        action=action,
-        created_from=created_from,
-        created_to=created_to,
+    page, page_size = paging
+    return ok(
+        audit.list_operation_logs(
+            session,
+            operator_id=operator_id,
+            action=action,
+            created_from=created_from,
+            created_to=created_to,
+            page=page,
+            page_size=page_size,
+        )
     )
-    return ok({"items": items})
 
 
 @router.get("/dictionaries")
 def list_dictionaries(
     dict_type: str | None = None,
+    paging: tuple[int, int] = Depends(pagination_query),
     session: Session = Depends(get_db),
     _: CurrentUser = Depends(require_permissions(PERM_DICT_READ)),
 ) -> dict:
-    items = dict_service.list_dict_items(session, dict_type=dict_type)
-    return ok({"items": items})
+    page, page_size = paging
+    return ok(
+        dict_service.list_dict_items(
+            session, dict_type=dict_type, page=page, page_size=page_size
+        )
+    )
 
 
 @router.post("/dictionaries")
@@ -203,10 +214,12 @@ def deactivate_dictionary_item(
 
 @router.get("/users")
 def list_users(
+    paging: tuple[int, int] = Depends(pagination_query),
     session: Session = Depends(get_db),
     _: CurrentUser = Depends(require_permissions(PERM_USER_WRITE)),
 ) -> dict:
-    return ok({"items": user_service.list_users(session)})
+    page, page_size = paging
+    return ok(user_service.list_users(session, page=page, page_size=page_size))
 
 
 @router.post("/users")

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.catalog.infrastructure.models import Sku
 from app.inventory.application.types import ALERT_STATUS_CLEARED, ALERT_STATUS_OPEN, fmt_qty
 from app.inventory.infrastructure.models import InventoryAlert, InventoryBalance
+from app.shared.pagination import paginate, paginated_payload
 
 
 def _sum_available(
@@ -86,22 +87,29 @@ def list_alerts(
     session: Session,
     *,
     warehouse_id: int | None = None,
-) -> list[dict]:
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
     """只读有效（open）预警；可按仓库筛选。"""
     stmt = select(InventoryAlert).where(InventoryAlert.status == ALERT_STATUS_OPEN)
     if warehouse_id is not None:
         stmt = stmt.where(InventoryAlert.warehouse_id == warehouse_id)
-    stmt = stmt.order_by(InventoryAlert.id.asc())
-    rows = session.scalars(stmt).all()
-    return [
-        {
-            "id": row.id,
-            "warehouse_id": row.warehouse_id,
-            "sku_id": row.sku_id,
-            "qty_available": fmt_qty(row.qty_available),
-            "safety_stock": fmt_qty(row.safety_stock),
-            "status": row.status,
-            "created_at": row.created_at.isoformat(sep=" ", timespec="seconds"),
-        }
-        for row in rows
-    ]
+    stmt = stmt.order_by(InventoryAlert.created_at.desc(), InventoryAlert.id.desc())
+    rows, total = paginate(session, stmt, page=page, page_size=page_size)
+    return paginated_payload(
+        [
+            {
+                "id": row.id,
+                "warehouse_id": row.warehouse_id,
+                "sku_id": row.sku_id,
+                "qty_available": fmt_qty(row.qty_available),
+                "safety_stock": fmt_qty(row.safety_stock),
+                "status": row.status,
+                "created_at": row.created_at.isoformat(sep=" ", timespec="seconds"),
+            }
+            for row in rows
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )

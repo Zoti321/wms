@@ -23,6 +23,7 @@ from app.inventory.application.types import (
 )
 from app.inventory.infrastructure.models import InventoryBalance, InventoryLedger
 from app.shared.metrics import record_inventory_operation
+from app.shared.pagination import paginate, paginated_payload
 
 _SCOPE_OPERATION = {
     ALLOCATE_SCOPE: "allocate",
@@ -212,7 +213,9 @@ def list_balances(
     warehouse_id: int | None = None,
     sku_id: int | None = None,
     location_id: int | None = None,
-) -> list[dict]:
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
     stmt = select(InventoryBalance)
     if warehouse_id is not None:
         stmt = stmt.where(InventoryBalance.warehouse_id == warehouse_id)
@@ -220,21 +223,30 @@ def list_balances(
         stmt = stmt.where(InventoryBalance.sku_id == sku_id)
     if location_id is not None:
         stmt = stmt.where(InventoryBalance.location_id == location_id)
-    stmt = stmt.order_by(InventoryBalance.id.asc())
-    rows = session.scalars(stmt).all()
-    return [
-        {
-            "id": row.id,
-            "warehouse_id": row.warehouse_id,
-            "sku_id": row.sku_id,
-            "location_id": row.location_id,
-            "qty_on_hand": fmt_qty(row.qty_on_hand),
-            "qty_frozen": fmt_qty(row.qty_frozen),
-            "qty_available": fmt_qty(available_qty(row.qty_on_hand, row.qty_frozen)),
-            "version": row.version,
-        }
-        for row in rows
-    ]
+    stmt = stmt.order_by(
+        InventoryBalance.warehouse_id.asc(),
+        InventoryBalance.sku_id.asc(),
+        InventoryBalance.location_id.asc(),
+    )
+    rows, total = paginate(session, stmt, page=page, page_size=page_size)
+    return paginated_payload(
+        [
+            {
+                "id": row.id,
+                "warehouse_id": row.warehouse_id,
+                "sku_id": row.sku_id,
+                "location_id": row.location_id,
+                "qty_on_hand": fmt_qty(row.qty_on_hand),
+                "qty_frozen": fmt_qty(row.qty_frozen),
+                "qty_available": fmt_qty(available_qty(row.qty_on_hand, row.qty_frozen)),
+                "version": row.version,
+            }
+            for row in rows
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def list_ledgers(
@@ -245,7 +257,9 @@ def list_ledgers(
     ref_line_id: int | None = None,
     ref_id: int | None = None,
     ref_type: str | None = None,
-) -> list[dict]:
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
     stmt = select(InventoryLedger)
     if warehouse_id is not None:
         stmt = stmt.where(InventoryLedger.warehouse_id == warehouse_id)
@@ -257,22 +271,27 @@ def list_ledgers(
         stmt = stmt.where(InventoryLedger.ref_id == ref_id)
     if ref_type is not None:
         stmt = stmt.where(InventoryLedger.ref_type == ref_type)
-    stmt = stmt.order_by(InventoryLedger.id.asc())
-    rows = session.scalars(stmt).all()
-    return [
-        {
-            "id": row.id,
-            "warehouse_id": row.warehouse_id,
-            "sku_id": row.sku_id,
-            "location_id": row.location_id,
-            "change_qty": fmt_qty(row.change_qty),
-            "bal_qty": fmt_qty(row.bal_qty),
-            "ref_type": row.ref_type,
-            "ref_id": row.ref_id,
-            "ref_line_id": row.ref_line_id,
-            "ref_no": row.ref_no,
-            "operator_id": row.operator_id,
-            "created_at": row.created_at.isoformat(sep=" ", timespec="seconds"),
-        }
-        for row in rows
-    ]
+    stmt = stmt.order_by(InventoryLedger.created_at.desc(), InventoryLedger.id.desc())
+    rows, total = paginate(session, stmt, page=page, page_size=page_size)
+    return paginated_payload(
+        [
+            {
+                "id": row.id,
+                "warehouse_id": row.warehouse_id,
+                "sku_id": row.sku_id,
+                "location_id": row.location_id,
+                "change_qty": fmt_qty(row.change_qty),
+                "bal_qty": fmt_qty(row.bal_qty),
+                "ref_type": row.ref_type,
+                "ref_id": row.ref_id,
+                "ref_line_id": row.ref_line_id,
+                "ref_no": row.ref_no,
+                "operator_id": row.operator_id,
+                "created_at": row.created_at.isoformat(sep=" ", timespec="seconds"),
+            }
+            for row in rows
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )

@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.platform.infrastructure.models import OperationLog
+from app.shared.pagination import paginate, paginated_payload
 
 ACTION_LOGIN = "auth.login"
 ACTION_USER_CREATE = "user.create"
@@ -55,7 +56,9 @@ def list_operation_logs(
     action: str | None = None,
     created_from: datetime | None = None,
     created_to: datetime | None = None,
-) -> list[dict]:
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
     stmt = select(OperationLog)
     if operator_id is not None:
         stmt = stmt.where(OperationLog.operator_id == operator_id)
@@ -66,17 +69,22 @@ def list_operation_logs(
     if created_to is not None:
         stmt = stmt.where(OperationLog.created_at <= created_to)
     stmt = stmt.order_by(OperationLog.id.desc())
-    rows = session.scalars(stmt).all()
-    return [
-        {
-            "id": row.id,
-            "operator_id": row.operator_id,
-            "operator_name": row.operator_name,
-            "action": row.action,
-            "resource_type": row.resource_type,
-            "resource_id": row.resource_id,
-            "detail": row.detail,
-            "created_at": row.created_at.isoformat(sep=" ", timespec="seconds"),
-        }
-        for row in rows
-    ]
+    rows, total = paginate(session, stmt, page=page, page_size=page_size)
+    return paginated_payload(
+        [
+            {
+                "id": row.id,
+                "operator_id": row.operator_id,
+                "operator_name": row.operator_name,
+                "action": row.action,
+                "resource_type": row.resource_type,
+                "resource_id": row.resource_id,
+                "detail": row.detail,
+                "created_at": row.created_at.isoformat(sep=" ", timespec="seconds"),
+            }
+            for row in rows
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )

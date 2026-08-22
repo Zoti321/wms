@@ -109,7 +109,7 @@ def test_allocate_below_safety_stock_opens_alert(db_session) -> None:
         qty=Decimal("12"),
     )
 
-    assert inv.list_alerts(db_session, warehouse_id=warehouse_id) == []
+    assert inv.list_alerts(db_session, warehouse_id=warehouse_id)['items'] == []
 
     inv.allocate(
         db_session,
@@ -126,7 +126,7 @@ def test_allocate_below_safety_stock_opens_alert(db_session) -> None:
     )
     db_session.commit()
 
-    alerts = inv.list_alerts(db_session, warehouse_id=warehouse_id)
+    alerts = inv.list_alerts(db_session, warehouse_id=warehouse_id)['items']
     assert len(alerts) == 1
     assert alerts[0]["warehouse_id"] == warehouse_id
     assert alerts[0]["sku_id"] == sku_id
@@ -147,7 +147,7 @@ def test_release_restores_available_and_clears_alert(db_session) -> None:
         on_hand=Decimal("12"),
         allocate_qty=Decimal("3"),
     )
-    assert len(inv.list_alerts(db_session, warehouse_id=warehouse_id)) == 1
+    assert len(inv.list_alerts(db_session, warehouse_id=warehouse_id)['items']) == 1
 
     inv.release(
         db_session,
@@ -164,7 +164,7 @@ def test_release_restores_available_and_clears_alert(db_session) -> None:
     )
     db_session.commit()
 
-    assert inv.list_alerts(db_session, warehouse_id=warehouse_id) == []
+    assert inv.list_alerts(db_session, warehouse_id=warehouse_id)['items'] == []
 
 
 def test_increase_clears_alert_when_available_recovers(db_session) -> None:
@@ -187,7 +187,7 @@ def test_increase_clears_alert_when_available_recovers(db_session) -> None:
         location_id=location_id,
         qty=Decimal("5"),
     )
-    assert inv.list_alerts(db_session, warehouse_id=warehouse_id) == []
+    assert inv.list_alerts(db_session, warehouse_id=warehouse_id)['items'] == []
 
 
 def test_adjust_loss_opens_alert_and_gain_clears(db_session) -> None:
@@ -216,7 +216,7 @@ def test_adjust_loss_opens_alert_and_gain_clears(db_session) -> None:
         idempotency_key=f"adj-loss-{uuid4().hex}",
     )
     db_session.commit()
-    alerts = inv.list_alerts(db_session, warehouse_id=warehouse_id)
+    alerts = inv.list_alerts(db_session, warehouse_id=warehouse_id)['items']
     assert len(alerts) == 1
     assert alerts[0]["qty_available"] == "9.000"
 
@@ -234,7 +234,7 @@ def test_adjust_loss_opens_alert_and_gain_clears(db_session) -> None:
         idempotency_key=f"adj-gain-{uuid4().hex}",
     )
     db_session.commit()
-    assert inv.list_alerts(db_session, warehouse_id=warehouse_id) == []
+    assert inv.list_alerts(db_session, warehouse_id=warehouse_id)['items'] == []
 
 
 def test_zero_safety_stock_never_opens_alert(db_session) -> None:
@@ -262,7 +262,7 @@ def test_zero_safety_stock_never_opens_alert(db_session) -> None:
         idempotency_key=f"alloc-{uuid4().hex}",
     )
     db_session.commit()
-    assert inv.list_alerts(db_session, warehouse_id=warehouse_id) == []
+    assert inv.list_alerts(db_session, warehouse_id=warehouse_id)['items'] == []
 
 
 def test_repeated_allocate_keeps_single_open_alert(db_session) -> None:
@@ -277,7 +277,7 @@ def test_repeated_allocate_keeps_single_open_alert(db_session) -> None:
         on_hand=Decimal("12"),
         allocate_qty=Decimal("3"),
     )
-    first_id = inv.list_alerts(db_session, warehouse_id=warehouse_id)[0]["id"]
+    first_id = inv.list_alerts(db_session, warehouse_id=warehouse_id)['items'][0]["id"]
 
     inv.allocate(
         db_session,
@@ -294,7 +294,7 @@ def test_repeated_allocate_keeps_single_open_alert(db_session) -> None:
     )
     db_session.commit()
 
-    alerts = inv.list_alerts(db_session, warehouse_id=warehouse_id)
+    alerts = inv.list_alerts(db_session, warehouse_id=warehouse_id)['items']
     assert len(alerts) == 1
     assert alerts[0]["id"] == first_id
     assert alerts[0]["qty_available"] == "8.000"
@@ -330,10 +330,10 @@ def test_list_alerts_filters_by_warehouse(db_session) -> None:
         allocate_qty=Decimal("3"),
     )
 
-    only_wh1 = inv.list_alerts(db_session, warehouse_id=wh1)
+    only_wh1 = inv.list_alerts(db_session, warehouse_id=wh1)['items']
     assert len(only_wh1) == 1
     assert only_wh1[0]["warehouse_id"] == wh1
-    assert len(inv.list_alerts(db_session)) == 2
+    assert len(inv.list_alerts(db_session)['items']) == 2
 
 
 def test_get_alerts_requires_bearer_and_returns_open(
@@ -395,7 +395,7 @@ def test_alert_uses_cross_location_available_sum(db_session) -> None:
         qty=Decimal("5"),
     )
     # 跨库位合计 11 >= 10，无预警
-    assert inv.list_alerts(db_session, warehouse_id=warehouse_id) == []
+    assert inv.list_alerts(db_session, warehouse_id=warehouse_id)['items'] == []
 
     inv.allocate(
         db_session,
@@ -412,7 +412,7 @@ def test_alert_uses_cross_location_available_sum(db_session) -> None:
     )
     db_session.commit()
     # 合计可用 9 < 10
-    alerts = inv.list_alerts(db_session, warehouse_id=warehouse_id)
+    alerts = inv.list_alerts(db_session, warehouse_id=warehouse_id)['items']
     assert len(alerts) == 1
     assert alerts[0]["qty_available"] == "9.000"
 
@@ -437,7 +437,7 @@ def test_available_equal_to_safety_stock_clears_alert(db_session) -> None:
         location_id=location_id,
         qty=Decimal("1"),
     )
-    assert inv.list_alerts(db_session, warehouse_id=warehouse_id) == []
+    assert inv.list_alerts(db_session, warehouse_id=warehouse_id)['items'] == []
 
 
 def test_increase_still_below_threshold_keeps_alert_open(db_session) -> None:
@@ -452,7 +452,7 @@ def test_increase_still_below_threshold_keeps_alert_open(db_session) -> None:
         on_hand=Decimal("12"),
         allocate_qty=Decimal("3"),
     )
-    first_id = inv.list_alerts(db_session, warehouse_id=warehouse_id)[0]["id"]
+    first_id = inv.list_alerts(db_session, warehouse_id=warehouse_id)['items'][0]["id"]
 
     _increase(
         db_session,
@@ -461,7 +461,7 @@ def test_increase_still_below_threshold_keeps_alert_open(db_session) -> None:
         location_id=location_id,
         qty=Decimal("0.5"),
     )
-    alerts = inv.list_alerts(db_session, warehouse_id=warehouse_id)
+    alerts = inv.list_alerts(db_session, warehouse_id=warehouse_id)['items']
     assert len(alerts) == 1
     assert alerts[0]["id"] == first_id
     assert alerts[0]["qty_available"] == "9.500"

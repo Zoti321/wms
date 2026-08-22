@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.platform.infrastructure.models import DictItem
+from app.shared.pagination import paginate, paginated_payload
 
 
 class DictError(Exception):
@@ -43,24 +44,31 @@ def list_dict_items(
     session: Session,
     *,
     dict_type: str | None = None,
-) -> list[dict]:
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
     stmt = select(DictItem).where(DictItem.status == 1)
     if dict_type is not None:
         stmt = stmt.where(DictItem.dict_type == dict_type)
     stmt = stmt.order_by(
         DictItem.dict_type.asc(), DictItem.sort_order.asc(), DictItem.id.asc()
     )
-    rows = session.scalars(stmt).all()
-    return [
-        {
-            "id": row.id,
-            "dict_type": row.dict_type,
-            "code": row.code,
-            "name": row.name,
-            "sort_order": row.sort_order,
-        }
-        for row in rows
-    ]
+    rows, total = paginate(session, stmt, page=page, page_size=page_size)
+    return paginated_payload(
+        [
+            {
+                "id": row.id,
+                "dict_type": row.dict_type,
+                "code": row.code,
+                "name": row.name,
+                "sort_order": row.sort_order,
+            }
+            for row in rows
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def create_dict_item(

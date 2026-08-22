@@ -350,9 +350,9 @@ CREATE TABLE inventory_ledger (
           <tr><th>包</th><th>已实现路由</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>platform</code></td><td><code>POST /auth/login</code>、<code>GET /auth/me</code>（含 <code>permissions</code>）；<code>GET /operation-logs</code>；<code>GET /dictionaries</code>、<code>POST /dictionaries</code>、<code>PATCH /dictionaries/{id}</code>、<code>POST .../deactivate</code>；<code>GET /users</code>、<code>POST /users</code>、<code>POST /users/{id}/deactivate</code>、<code>POST /users/{id}/reset-password</code>、<code>PATCH /users/{id}/role</code>；<code>GET /reports/daily</code>、<code>GET /reports/daily.csv</code></td></tr>
-          <tr><td><code>catalog</code></td><td>仓库 / SKU / 库位 / 供应商 / 客户：列表、详情、创建、更新、<code>POST .../deactivate</code></td></tr>
-          <tr><td><code>inventory</code></td><td><code>GET /inventories</code>、<code>GET /inventories/ledgers</code>、<code>GET /inventories/alerts</code>（只读；写路径经 application 端口供其它上下文调用）</td></tr>
+          <tr><td><code>platform</code></td><td><code>POST /auth/login</code>、<code>GET /auth/me</code>（含 <code>permissions</code>）；<code>GET /operation-logs</code>（列表分页）；<code>GET /dictionaries</code>（列表分页）、<code>POST /dictionaries</code>、<code>PATCH /dictionaries/{id}</code>、<code>POST .../deactivate</code>；<code>GET /users</code>（列表分页）、<code>POST /users</code>、<code>POST /users/{id}/deactivate</code>、<code>POST /users/{id}/reset-password</code>、<code>PATCH /users/{id}/role</code>；<code>GET /reports/daily</code>、<code>GET /reports/daily.csv</code></td></tr>
+          <tr><td><code>catalog</code></td><td>仓库 / SKU / 库位 / 供应商 / 客户：列表分页、详情、创建、更新、<code>POST .../deactivate</code></td></tr>
+          <tr><td><code>inventory</code></td><td><code>GET /inventories</code>、<code>GET /inventories/ledgers</code>、<code>GET /inventories/alerts</code>（只读列表分页；写路径经 application 端口供其它上下文调用）</td></tr>
           <tr><td><code>inbound</code></td><td><code>GET /inbound-orders</code>（列表分页）、<code>POST /inbound-orders</code>、<code>GET /inbound-orders/{id}</code>、<code>PATCH ...</code>、submit / approve / putaway / cancel</td></tr>
           <tr><td><code>outbound</code></td><td><code>GET /outbound-orders</code>（列表分页）、<code>POST /outbound-orders</code>、<code>GET /outbound-orders/{id}</code>、<code>PATCH ...</code>、submit / approve / pick / cancel</td></tr>
           <tr><td><code>stocktake</code></td><td><code>GET /stocktakes</code>（列表分页）、<code>POST /stocktakes</code>、<code>GET /stocktakes/{id}</code>、counts / approve / cancel</td></tr>
@@ -377,14 +377,7 @@ CREATE TABLE inventory_ledger (
       <p>以下缺口<strong>不在</strong>需求「MVP 范围外」之列，对接 Web 管理端或发版前建议优先处理。</p>
 
       <h4>管理端 API</h4>
-      <table>
-        <thead>
-          <tr><th>缺口</th><th>影响</th><th>建议</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>列表接口无分页/排序（主数据）</td><td>主数据量增大后表格与性能吃力</td><td>统一 <code>page</code> / <code>page_size</code> 约定（单据列表已支持）</td></tr>
-        </tbody>
-      </table>
+      <p>只读列表分页（主数据、库存、操作日志、字典、用户）已与单据列表对齐 <code>page</code> / <code>page_size</code> 约定（#16）。</p>
 
       <h4>工程与运维（M5）</h4>
       <table>
@@ -412,7 +405,7 @@ CREATE TABLE inventory_ledger (
 
       <h3>12.6 建议优先级</h3>
       <ol>
-        <li><strong>支撑 Web 管理端</strong>：主数据列表分页（单据列表与用户/字典/权限码已就绪）。</li>
+        <li><strong>支撑 Web 管理端</strong>：只读列表分页已完成（#16）；Web 管理端 UI 对接进行中。</li>
         <li><strong>发版门禁</strong>：PR CI（MySQL + 集成测）+ 发版前手动跑 <code>wms-api-uat.yml</code> 或 <code>pytest tests/uat</code> + UAT 人工签字（<a href="uat/backend-signoff.md">清单</a>）。</li>
         <li><strong>生产就绪</strong>：健康检查探 DB（已完成）、<a href="runbooks/mysql-backup-restore.md">备份 Runbook</a>（已完成）、<a href="runbooks/operational-monitoring.md">运行监控</a>（#15 已完成）；staging 上 <code>UAT_BASE_URL</code> 重跑 UAT（见 <a href="uat/staging-uat.md">staging 指南</a>）；三角色 UAT 签字待完成。</li>
       </ol>

@@ -160,8 +160,12 @@ def list_alerts(
     session: Session,
     *,
     warehouse_id: int | None = None,
-) -> list[dict]:
-    return alert_evaluator.list_alerts(session, warehouse_id=warehouse_id)
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
+    return alert_evaluator.list_alerts(
+        session, warehouse_id=warehouse_id, page=page, page_size=page_size
+    )
 
 
 def increase(
@@ -450,12 +454,16 @@ def list_balances(
     warehouse_id: int | None = None,
     sku_id: int | None = None,
     location_id: int | None = None,
-) -> list[dict]:
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
     return ledger_port.list_balances(
         session,
         warehouse_id=warehouse_id,
         sku_id=sku_id,
         location_id=location_id,
+        page=page,
+        page_size=page_size,
     )
 
 
@@ -467,7 +475,9 @@ def list_ledgers(
     ref_line_id: int | None = None,
     ref_id: int | None = None,
     ref_type: str | None = None,
-) -> list[dict]:
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
     return ledger_port.list_ledgers(
         session,
         warehouse_id=warehouse_id,
@@ -475,4 +485,6 @@ def list_ledgers(
         ref_line_id=ref_line_id,
         ref_id=ref_id,
         ref_type=ref_type,
+        page=page,
+        page_size=page_size,
     )

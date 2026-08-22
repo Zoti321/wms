@@ -107,7 +107,7 @@ def test_lock_does_not_change_inventory_frozen_qty(db_session) -> None:
     )
     db_session.commit()
 
-    bal = inv.list_balances(db_session, warehouse_id=warehouse_id)[0]
+    bal = inv.list_balances(db_session, warehouse_id=warehouse_id)['items'][0]
     assert bal["qty_on_hand"] == "5.000"
     assert bal["qty_frozen"] == "0.000"
     assert bal["qty_available"] == "5.000"

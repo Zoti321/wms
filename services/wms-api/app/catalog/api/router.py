@@ -30,6 +30,7 @@ from app.platform.api.deps import CurrentUser, require_permissions
 from app.platform.domain.permissions import PERM_CATALOG_READ, PERM_CATALOG_WRITE
 from app.shared.db import get_db
 from app.shared.http_errors import DomainErrorRule, map_domain_error
+from app.shared.pagination import pagination_query
 from app.shared.response import ok
 
 router = APIRouter(tags=["catalog"])
@@ -44,8 +45,15 @@ def _ok_item(model: type, data: dict[str, Any]) -> dict[str, Any]:
     return ok(model.model_validate(data).model_dump())
 
 
-def _ok_items(model: type, items: list[dict[str, Any]]) -> dict[str, Any]:
-    return ok({"items": [model.model_validate(item).model_dump() for item in items]})
+def _ok_paginated(model: type, payload: dict[str, Any]) -> dict[str, Any]:
+    return ok(
+        {
+            **payload,
+            "items": [
+                model.model_validate(item).model_dump() for item in payload["items"]
+            ],
+        }
+    )
 
 
 # --- warehouses ---
@@ -72,17 +80,21 @@ def list_warehouses(
     name: str | None = None,
     entity_status: int | None = Query(default=None, alias="status", ge=0, le=1),
     selectable: bool = False,
+    paging: tuple[int, int] = Depends(pagination_query),
     session: Session = Depends(get_db),
     _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
 ) -> dict:
-    items = svc.list_warehouses(
+    page, page_size = paging
+    payload = svc.list_warehouses(
         session,
         code=code,
         name=name,
         status=entity_status,
         selectable=selectable,
+        page=page,
+        page_size=page_size,
     )
-    return _ok_items(WarehouseData, items)
+    return _ok_paginated(WarehouseData, payload)
 
 
 @router.get("/warehouses/{warehouse_id}")
@@ -157,18 +169,22 @@ def list_skus(
     name: str | None = None,
     entity_status: int | None = Query(default=None, alias="status", ge=0, le=1),
     selectable: bool = False,
+    paging: tuple[int, int] = Depends(pagination_query),
     session: Session = Depends(get_db),
     _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
 ) -> dict:
+    page, page_size = paging
     # SKU 跨仓共享；「按仓筛可用 SKU」= 受保护列表 + selectable（启用中）
-    items = svc.list_skus(
+    payload = svc.list_skus(
         session,
         code=code,
         name=name,
         status=entity_status,
         selectable=selectable,
+        page=page,
+        page_size=page_size,
     )
-    return _ok_items(SkuData, items)
+    return _ok_paginated(SkuData, payload)
 
 
 @router.get("/skus/{sku_id}")
@@ -250,21 +266,25 @@ def list_locations(
     entity_status: int | None = Query(default=None, alias="status", ge=0, le=1),
     space_status: str | None = None,
     selectable: bool = False,
+    paging: tuple[int, int] = Depends(pagination_query),
     session: Session = Depends(get_db),
     _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
 ) -> dict:
+    page, page_size = paging
     try:
-        items = svc.list_locations(
+        payload = svc.list_locations(
             session,
             warehouse_id=warehouse_id,
             code=code,
             status=entity_status,
             space_status=space_status,
             selectable=selectable,
+            page=page,
+            page_size=page_size,
         )
     except svc.CatalogConflictError as exc:
         map_domain_error(exc, _CATALOG_RULES)
-    return _ok_items(LocationData, items)
+    return _ok_paginated(LocationData, payload)
 
 
 @router.get("/locations/{location_id}")
@@ -338,17 +358,21 @@ def list_suppliers(
     name: str | None = None,
     entity_status: int | None = Query(default=None, alias="status", ge=0, le=1),
     selectable: bool = False,
+    paging: tuple[int, int] = Depends(pagination_query),
     session: Session = Depends(get_db),
     _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
 ) -> dict:
-    items = svc.list_suppliers(
+    page, page_size = paging
+    payload = svc.list_suppliers(
         session,
         code=code,
         name=name,
         status=entity_status,
         selectable=selectable,
+        page=page,
+        page_size=page_size,
     )
-    return _ok_items(SupplierData, items)
+    return _ok_paginated(SupplierData, payload)
 
 
 @router.get("/suppliers/{supplier_id}")
@@ -415,17 +439,21 @@ def list_customers(
     name: str | None = None,
     entity_status: int | None = Query(default=None, alias="status", ge=0, le=1),
     selectable: bool = False,
+    paging: tuple[int, int] = Depends(pagination_query),
     session: Session = Depends(get_db),
     _: CurrentUser = Depends(require_permissions(PERM_CATALOG_READ)),
 ) -> dict:
-    items = svc.list_customers(
+    page, page_size = paging
+    payload = svc.list_customers(
         session,
         code=code,
         name=name,
         status=entity_status,
         selectable=selectable,
+        page=page,
+        page_size=page_size,
     )
-    return _ok_items(CustomerData, items)
+    return _ok_paginated(CustomerData, payload)
 
 
 @router.get("/customers/{customer_id}")

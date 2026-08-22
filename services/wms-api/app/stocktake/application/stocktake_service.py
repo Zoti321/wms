@@ -14,6 +14,7 @@ from app.catalog.infrastructure.models import Location, Warehouse
 from app.inventory.application import inventory_service as inv
 from app.inventory.application import lock as lock_port
 from app.platform.domain.permissions import PERM_STOCKTAKE_APPROVE, has_permission
+from app.shared.pagination import MAX_PAGE_SIZE
 from app.stocktake.domain.status import (
     APPROVE_ALLOWED,
     CANCEL_ALLOWED,
@@ -168,8 +169,17 @@ def create_order(
         raise StocktakeError("盘点范围内无可用库位")
 
     location_ids = [loc.id for loc in locations]
-    balances = inv.list_balances(session, warehouse_id=warehouse_id)
-    balances = [b for b in balances if b["location_id"] in set(location_ids)]
+    all_balances: list[dict] = []
+    page = 1
+    while True:
+        payload = inv.list_balances(
+            session, warehouse_id=warehouse_id, page=page, page_size=MAX_PAGE_SIZE
+        )
+        all_balances.extend(payload["items"])
+        if page * MAX_PAGE_SIZE >= payload["total"]:
+            break
+        page += 1
+    balances = [b for b in all_balances if b["location_id"] in set(location_ids)]
 
     order = StocktakeOrder(
         order_no=order_no or f"ST-{uuid4().hex[:12].upper()}",
