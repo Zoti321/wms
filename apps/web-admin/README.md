@@ -19,7 +19,8 @@ pnpm dev:web-admin
 | `pnpm dev:web-admin` | 启动开发服务器 |
 | `pnpm typecheck:web-admin` | TypeScript 检查 |
 | `pnpm test:web-admin` | Vitest 单测 |
-| `pnpm --filter web-admin generate:api` | 从本地 OpenAPI 生成类型（需 API 运行） |
+| `pnpm --filter web-admin generate:openapi-snapshot` | 从 FastAPI 导出 OpenAPI 快照（无需启动服务） |
+| `pnpm --filter web-admin generate:api` | 由快照生成 `src/types/openapi.d.ts` |
 
 ## 环境变量
 

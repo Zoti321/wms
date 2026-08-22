@@ -22,6 +22,17 @@ function resolveApiBaseUrl(): string {
   return base ? `${base.replace(/\/$/, '')}/api/v1` : '/api/v1'
 }
 
+function clearTokenIfUnauthorized(code: number, httpStatus?: number): void {
+  if (code === 40100 || httpStatus === 401) {
+    clearAccessToken()
+  }
+}
+
+function throwApiError(payload: ApiEnvelope, httpStatus?: number): never {
+  clearTokenIfUnauthorized(payload.code, httpStatus)
+  throw new ApiError(payload.code, payload.message, payload.traceId)
+}
+
 export function createApiClient(): AxiosInstance {
   const client = axios.create({
     baseURL: resolveApiBaseUrl(),
@@ -42,20 +53,14 @@ export function createApiClient(): AxiosInstance {
     (response: AxiosResponse<ApiEnvelope>) => {
       const payload = response.data
       if (payload.code !== 0) {
-        if (payload.code === 40100 || response.status === 401) {
-          clearAccessToken()
-        }
-        throw new ApiError(payload.code, payload.message, payload.traceId)
+        throwApiError(payload, response.status)
       }
       return response
     },
     (error) => {
       const payload = error.response?.data as ApiEnvelope | undefined
       if (payload && typeof payload.code === 'number') {
-        if (payload.code === 40100 || error.response?.status === 401) {
-          clearAccessToken()
-        }
-        throw new ApiError(payload.code, payload.message, payload.traceId)
+        throwApiError(payload, error.response?.status)
       }
       throw error
     },

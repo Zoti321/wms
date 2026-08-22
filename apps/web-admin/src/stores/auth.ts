@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 import * as authApi from '@/api/auth'
 import type { MeData } from '@/types/api'
+import { hasPermission as checkPermission } from '@/utils/permission'
 import {
   clearAccessToken,
   getAccessToken,
@@ -14,7 +15,7 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<MeData | null>(null)
   const loading = ref(false)
 
-  const permissions = ref<string[]>([])
+  const permissions = computed(() => user.value?.permissions ?? [])
 
   async function login(username: string, password: string): Promise<void> {
     loading.value = true
@@ -31,13 +32,10 @@ export const useAuthStore = defineStore('auth', () => {
   async function loadMe(): Promise<void> {
     if (!token.value) {
       user.value = null
-      permissions.value = []
       return
     }
 
-    const me = await authApi.fetchMe()
-    user.value = me
-    permissions.value = me.permissions
+    user.value = await authApi.fetchMe()
   }
 
   async function restoreSession(): Promise<boolean> {
@@ -60,12 +58,11 @@ export const useAuthStore = defineStore('auth', () => {
   function logout(): void {
     token.value = null
     user.value = null
-    permissions.value = []
     clearAccessToken()
   }
 
   function hasPermission(required: string): boolean {
-    return permissions.value.includes(required)
+    return checkPermission(permissions.value, required)
   }
 
   return {

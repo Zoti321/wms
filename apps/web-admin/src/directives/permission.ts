@@ -1,6 +1,7 @@
 import type { Directive, DirectiveBinding } from 'vue'
 
 import { useAuthStore } from '@/stores/auth'
+import { hasAnyPermission, hasPermission } from '@/utils/permission'
 
 function checkPermission(el: HTMLElement, binding: DirectiveBinding<string | string[]>): void {
   const auth = useAuthStore()
@@ -12,8 +13,8 @@ function checkPermission(el: HTMLElement, binding: DirectiveBinding<string | str
   }
 
   const allowed = Array.isArray(required)
-    ? required.some((perm) => auth.hasPermission(perm))
-    : auth.hasPermission(required)
+    ? hasAnyPermission(auth.permissions, required)
+    : hasPermission(auth.permissions, required)
 
   el.style.display = allowed ? '' : 'none'
 }
