@@ -516,3 +516,56 @@ def test_adjust_idempotent_replay_does_not_double_book(db_session) -> None:
     bal = inv.list_balances(db_session, warehouse_id=warehouse_id)[0]
     assert bal["qty_on_hand"] == "11.500"
     assert len(inv.list_ledgers(db_session, ref_line_id=702)) == 1
+
+
+def test_concurrent_adjust_at_most_one_succeeds(db_session) -> None:
+    """两笔争用同一在库：乐观锁下至多一方成功。"""
+    warehouse_id, sku_id, location_id = _seed_catalog(db_session)
+    _increase(
+        db_session,
+        warehouse_id=warehouse_id,
+        sku_id=sku_id,
+        location_id=location_id,
+        qty=Decimal("5"),
+    )
+
+    from app.shared.db import get_session_factory
+
+    factory = get_session_factory()
+    s1 = factory()
+    s2 = factory()
+    try:
+        bal1 = inv.list_balances(s1, warehouse_id=warehouse_id)[0]
+        bal2 = inv.list_balances(s2, warehouse_id=warehouse_id)[0]
+        assert bal1["version"] == bal2["version"] == 1
+
+        ok = 0
+        err = 0
+        for session, key in ((s1, "adj-c1"), (s2, "adj-c2")):
+            try:
+                inv.adjust(
+                    session,
+                    warehouse_id=warehouse_id,
+                    sku_id=sku_id,
+                    location_id=location_id,
+                    qty=Decimal("-5"),
+                    ref_type=inv.REF_TYPE_STOCKTAKE,
+                    ref_id=800,
+                    ref_line_id=801,
+                    ref_no="ST-RACE",
+                    operator_id=1,
+                    idempotency_key=key,
+                )
+                session.commit()
+                ok += 1
+            except (inv.InventoryConflictError, inv.InventoryInsufficientError):
+                session.rollback()
+                err += 1
+        assert ok == 1
+        assert err == 1
+        final = inv.list_balances(db_session, warehouse_id=warehouse_id)[0]
+        assert final["qty_on_hand"] == "0.000"
+        assert final["version"] == 2
+    finally:
+        s1.close()
+        s2.close()

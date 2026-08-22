@@ -53,7 +53,7 @@ def acquire_location_locks(
     try:
         session.flush()
     except IntegrityError as exc:
-        raise LocationLockConflictError("库位已盘点锁定") from exc
+        raise LocationLockConflictError("库位已作业锁定") from exc
 
 
 def release_location_locks(

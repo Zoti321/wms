@@ -484,7 +484,7 @@ def test_stocktake_approve_loss_insufficient_keeps_lock(client, auth_headers) ->
         f"/api/v1/stocktakes/{order['id']}/approve",
         headers={**auth_headers, "Idempotency-Key": f"st-short-a-{uuid4().hex}"},
     )
-    assert failed.status_code == 409, failed.text
+    assert failed.status_code == 400, failed.text
 
     bal = client.get(
         "/api/v1/inventories",

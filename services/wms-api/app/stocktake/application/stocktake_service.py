@@ -249,13 +249,13 @@ def approve_order(
             )
     except inv.InventoryInsufficientError as exc:
         session.rollback()
-        raise StocktakeConflictError(str(exc)) from exc
+        raise StocktakeError(str(exc)) from exc
     except inv.InventoryConflictError as exc:
         session.rollback()
         raise StocktakeConflictError(str(exc)) from exc
     except inv.InventoryError as exc:
         session.rollback()
-        raise StocktakeConflictError(str(exc)) from exc
+        raise StocktakeError(str(exc)) from exc
 
     lock_port.release_location_locks(
         session, ref_type=LOCK_REF_TYPE, ref_id=order.id
@@ -291,7 +291,7 @@ def cancel_order(
 
     order = _get_order(session, order_id)
     if order.status in TERMINAL_STATUSES:
-        raise StocktakeConflictError("已完成或已取消的盘点单不可再编辑")
+        raise StocktakeConflictError("已完成或已取消不可再取消")
     if order.status not in CANCEL_ALLOWED:
         raise StocktakeConflictError("当前状态不可取消")
 
