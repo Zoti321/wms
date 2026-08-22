@@ -1,25 +1,79 @@
-"""平台：操作日志、字典、用户角色。"""
+"""平台：操作日志、字典、用户角色、基础报表。"""
 
 from __future__ import annotations
 
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.platform.api.deps import CurrentUser, require_permissions
-from app.platform.api.schemas import AssignRoleRequest
+from app.platform.api.schemas import AssignRoleRequest, DailyReportData
 from app.platform.application import audit_service as audit
-from app.platform.application import dict_service, user_service
+from app.platform.application import dict_service, report_service, user_service
 from app.platform.domain.permissions import (
     PERM_AUDIT_READ,
     PERM_DICT_READ,
+    PERM_REPORT_READ,
     PERM_USER_WRITE,
 )
 from app.shared.db import get_db
 from app.shared.response import fail, ok
 
 router = APIRouter(tags=["platform"])
+
+
+def _daily_report_or_raise(
+    session: Session, *, warehouse_id: int, business_date: str
+) -> dict:
+    try:
+        day = report_service.parse_business_date(business_date)
+        return report_service.get_daily_report(
+            session, warehouse_id=warehouse_id, business_date=day
+        )
+    except report_service.ReportValidationError as exc:
+        body_fail, _ = fail(code=40000, message=str(exc), http_status=400)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=body_fail
+        ) from exc
+    except report_service.ReportNotFoundError as exc:
+        body_fail, _ = fail(code=40400, message=str(exc), http_status=404)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=body_fail
+        ) from exc
+
+
+@router.get("/reports/daily")
+def get_daily_report(
+    warehouse_id: int = Query(...),
+    business_date: str = Query(..., description="UTC 业务日 YYYY-MM-DD"),
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_REPORT_READ)),
+) -> dict:
+    raw = _daily_report_or_raise(
+        session, warehouse_id=warehouse_id, business_date=business_date
+    )
+    return ok(DailyReportData.model_validate(raw).model_dump())
+
+
+@router.get("/reports/daily.csv")
+def export_daily_report_csv(
+    warehouse_id: int = Query(...),
+    business_date: str = Query(..., description="UTC 业务日 YYYY-MM-DD"),
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_permissions(PERM_REPORT_READ)),
+) -> Response:
+    report = _daily_report_or_raise(
+        session, warehouse_id=warehouse_id, business_date=business_date
+    )
+    content = report_service.daily_report_to_csv(report)
+    filename = f"daily-report-{business_date}-wh{warehouse_id}.csv"
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/operation-logs")

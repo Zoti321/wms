@@ -23,6 +23,7 @@ PERM_AUDIT_READ = "audit:read"
 PERM_DICT_READ = "dict:read"
 PERM_DICT_WRITE = "dict:write"
 PERM_USER_WRITE = "user:write"
+PERM_REPORT_READ = "report:read"
 
 _ALL = frozenset(
     {
@@ -42,6 +43,7 @@ _ALL = frozenset(
         PERM_DICT_READ,
         PERM_DICT_WRITE,
         PERM_USER_WRITE,
+        PERM_REPORT_READ,
     }
 )
 
@@ -68,6 +70,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             PERM_STOCKTAKE_WRITE,
             PERM_STOCKTAKE_APPROVE,
             PERM_AUDIT_READ,
+            PERM_REPORT_READ,
         }
     ),
     ROLE_OPERATOR: frozenset(
@@ -77,7 +80,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             PERM_OUTBOUND_WRITE,
         }
     ),
-    ROLE_VIEWER: _READ,
+    ROLE_VIEWER: frozenset(_READ | {PERM_REPORT_READ}),
 }
 
 

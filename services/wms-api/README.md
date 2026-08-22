@@ -1,6 +1,6 @@
 # wms-api
 
-仓脉 WMS 后端（FastAPI + MySQL 8.0 + uv）。领域包与 `src/*/CONTEXT.md` 对齐：`catalog` / `inventory` / `inbound` / `outbound` / `stocktake`；`platform` 为身份与操作日志。
+仓脉 WMS 后端（FastAPI + MySQL 8.0 + uv）。领域包与 `src/*/CONTEXT.md` 对齐：`catalog` / `inventory` / `inbound` / `outbound` / `stocktake`；`platform` 为身份、操作日志与只读基础报表。
 
 ## 本地启动
 
@@ -21,7 +21,10 @@ uv run uvicorn app.main:app --reload --app-dir .
 入库：`/api/v1/inbound-orders`（submit / approve / putaway / cancel）；上架必须带 `Idempotency-Key`，经库存 `increase` 记账。  
 出库：`/api/v1/outbound-orders`（submit / approve / pick / cancel）；审核=分配、拣货=实扣、取消未拣=释放预留；approve/pick/cancel 必须带 `Idempotency-Key`。  
 盘点：`/api/v1/stocktakes`（创建并加盘点锁 / counts 实盘 / approve 调账释锁 / cancel 释锁）；create/approve/cancel 必须带 `Idempotency-Key`；审核需 `stocktake:approve`（admin/supervisor）。  
-库存查询：`GET /api/v1/inventories`、`GET /api/v1/inventories/ledgers`、`GET /api/v1/inventories/alerts`。
+库存查询：`GET /api/v1/inventories`、`GET /api/v1/inventories/ledgers`、`GET /api/v1/inventories/alerts`。  
+基础报表（需 `report:read`：admin/supervisor/viewer；operator 默认无）：  
+`GET /api/v1/reports/daily?warehouse_id=&business_date=`（JSON）、`GET /api/v1/reports/daily.csv?...`（CSV 直出）。  
+`business_date` 为 UTC 日历日 `YYYY-MM-DD`。字段口径：当日有上架的入库单数与上架量、当日有拣货的出库单数与实扣量、当前有货 SKU 数、当前总可用、有效预警条数。报表只读聚合，不改库存账。
 
 ### OpenAPI 交互文档
 
