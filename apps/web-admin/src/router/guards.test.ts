@@ -1,0 +1,85 @@
+import { describe, expect, it, vi } from 'vitest'
+import type { RouteLocationNormalized } from 'vue-router'
+
+import { resolveRouteGuard } from '@/router/guards'
+import { ROUTE_NAMES } from '@/router/routes'
+
+function routeOf(
+  partial: Pick<RouteLocationNormalized, 'name' | 'fullPath' | 'meta'>,
+): RouteLocationNormalized {
+  return partial as RouteLocationNormalized
+}
+
+describe('resolveRouteGuard', () => {
+  it('redirects unauthenticated users to login', async () => {
+    const result = await resolveRouteGuard(
+      routeOf({ name: ROUTE_NAMES.dashboard, fullPath: '/dashboard', meta: {} }),
+      {
+        token: null,
+        user: null,
+        hasPermission: () => false,
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(result).toEqual({
+      name: ROUTE_NAMES.login,
+      query: { redirect: '/dashboard' },
+    })
+  })
+
+  it('redirects to forbidden when permission is missing', async () => {
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.catalog,
+        fullPath: '/catalog',
+        meta: { permission: 'catalog:read' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: [] },
+        hasPermission: () => false,
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
+  })
+
+  it('restores session before checking permission', async () => {
+    const restoreSession = vi.fn().mockResolvedValue(true)
+    const hasPermission = vi.fn().mockReturnValue(true)
+
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.catalog,
+        fullPath: '/catalog',
+        meta: { permission: 'catalog:read' },
+      }),
+      {
+        token: 'token',
+        user: null,
+        hasPermission,
+        restoreSession,
+      },
+    )
+
+    expect(restoreSession).toHaveBeenCalledOnce()
+    expect(hasPermission).toHaveBeenCalledWith('catalog:read')
+    expect(result).toBe(true)
+  })
+
+  it('allows public login route without token', async () => {
+    const result = await resolveRouteGuard(
+      routeOf({ name: ROUTE_NAMES.login, fullPath: '/login', meta: { public: true } }),
+      {
+        token: null,
+        user: null,
+        hasPermission: () => false,
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(result).toBe(true)
+  })
+})

@@ -5,6 +5,7 @@ import axios, {
 } from 'axios'
 
 import { ApiError, type ApiEnvelope } from '@/types/api'
+import { notifyUnauthorized } from '@/api/unauthorized'
 import { clearAccessToken, getAccessToken } from '@/utils/tokenStorage'
 
 export function unwrapEnvelope<T>(body: ApiEnvelope<T>): T {
@@ -25,6 +26,7 @@ function resolveApiBaseUrl(): string {
 function clearTokenIfUnauthorized(code: number, httpStatus?: number): void {
   if (code === 40100 || httpStatus === 401) {
     clearAccessToken()
+    notifyUnauthorized()
   }
 }
 
