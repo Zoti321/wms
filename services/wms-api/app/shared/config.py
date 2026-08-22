@@ -22,6 +22,11 @@ class Settings(BaseSettings):
         default="mysql+pymysql://wms:wms@127.0.0.1:3306/wms?charset=utf8mb4",
         alias="DATABASE_URL",
     )
+    health_check_db: bool = Field(default=True, alias="HEALTH_CHECK_DB")
+    health_check_db_timeout_seconds: float = Field(
+        default=2.0,
+        alias="HEALTH_CHECK_DB_TIMEOUT_SECONDS",
+    )
 
     jwt_secret: str = Field(default="change-me-in-production", alias="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")

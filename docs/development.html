@@ -320,7 +320,8 @@ CREATE TABLE inventory_ledger (
       <h2 id="d11">11. 部署与运维要点</h2>
       <ul>
         <li>环境：dev / staging / prod 隔离；密钥走环境变量</li>
-        <li>数据库每日备份；恢复演练至少每季度一次</li>
+        <li>数据库每日备份；恢复演练至少每季度一次（步骤见 <a href="runbooks/mysql-backup-restore.md">MySQL 备份与恢复 Runbook</a>）</li>
+        <li>健康检查：<code>GET /health</code> 返回 JSON（<code>status</code> + <code>checks.database</code>）；DB 不可达时 HTTP 503 + <code>degraded</code>，便于负载均衡摘流；本地无库可设 <code>HEALTH_CHECK_DB=false</code></li>
         <li>监控：API 错误率、接口耗时、分配/实扣失败率、连接池</li>
         <li>上线检查清单：迁移脚本、回滚方案、默认仓库种子数据、初始管理员</li>
       </ul>
@@ -392,9 +393,9 @@ CREATE TABLE inventory_ledger (
         </thead>
         <tbody>
           <tr><td>CI 流水线</td><td><code>.github/workflows/wms-api-test.yml</code>：MySQL 8 服务 + <code>uv run pytest</code>（不含 UAT）；PR / push <code>main</code> 触发</td></tr>
-          <tr><td>健康检查</td><td><code>GET /health</code> 仅返回 <code>ok</code>，未探测 MySQL 连通性</td></tr>
+          <tr><td>健康检查</td><td><code>GET /health</code> 探测 MySQL（<code>SELECT 1</code>）；失败 HTTP 503 + <code>degraded</code>；可选 <code>HEALTH_CHECK_DB=false</code></td></tr>
           <tr><td>性能/压测</td><td>仅集成测覆盖轻量「并发分配不超卖」；无 P95 / 日单据量压测</td></tr>
-          <tr><td>备份恢复演练</td><td>无脚本或 Runbook；M5 另项</td></tr>
+          <tr><td>备份恢复演练</td><td><a href="runbooks/mysql-backup-restore.md">Runbook</a> 已文档化；季度人工演练待执行</td></tr>
           <tr><td>监控告警</td><td>错误率、耗时、连接池等待接入</td></tr>
           <tr><td>UAT 人工签字</td><td>自动化已绿灯；<code>docs/uat/backend-signoff.md</code> 三角色抽查待完成</td></tr>
         </tbody>
@@ -413,7 +414,7 @@ CREATE TABLE inventory_ledger (
       <ol>
         <li><strong>支撑 Web 管理端</strong>：主数据列表分页（单据列表与用户/字典/权限码已就绪）。</li>
         <li><strong>发版门禁</strong>：CI（MySQL service + <code>pytest</code>；发版前 <code>pytest tests/uat</code>）+ UAT 人工签字。</li>
-        <li><strong>生产就绪</strong>：健康检查探 DB、备份 Runbook、基础监控；staging 上 <code>UAT_BASE_URL</code> 重跑 UAT。</li>
+        <li><strong>生产就绪</strong>：健康检查探 DB（已完成）、<a href="runbooks/mysql-backup-restore.md">备份 Runbook</a>（已完成）；基础监控、staging 上 <code>UAT_BASE_URL</code> 重跑 UAT 待完成。</li>
       </ol>
 
       <div class="callout">

@@ -8,7 +8,7 @@ from tests.conftest import SEED_PASSWORD, SEED_USERNAME
 def test_health_does_not_require_auth(client) -> None:
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json()["status"] == "ok"
 
 
 def test_login_rejects_wrong_password(client) -> None:

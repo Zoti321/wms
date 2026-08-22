@@ -23,6 +23,7 @@ from app.outbound.api.router import router as outbound_router
 from app.platform.api.auth import router as auth_router
 from app.platform.api.router import router as platform_router
 from app.shared.config import get_settings
+from app.shared.health import build_health_response
 from app.stocktake.api.router import router as stocktake_router
 
 OPENAPI_DESCRIPTION = """
@@ -87,8 +88,9 @@ def create_app() -> FastAPI:
         )
 
     @application.get("/health")
-    def health() -> dict[str, str]:
-        return {"status": "ok"}
+    def health() -> JSONResponse:
+        payload, status_code = build_health_response(settings)
+        return JSONResponse(status_code=status_code, content=payload)
 
     application.include_router(auth_router, prefix="/api/v1")
     application.include_router(platform_router, prefix="/api/v1")
