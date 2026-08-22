@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+import pytest
+
 from app.platform.domain.permissions import ROLE_PERMISSIONS
 from tests.conftest import SEED_PASSWORD
 from tests.http_scenarios import data_ok, login
@@ -19,23 +21,63 @@ def test_me_returns_permissions_sorted(client, auth_headers) -> None:
     assert body["permissions"] == expected
 
 
-def test_me_permissions_match_role_matrix(client) -> None:
-    viewer = login(client, "viewer")
-    body = data_ok(client.get("/api/v1/auth/me", headers=viewer))
-    assert body["permissions"] == sorted(ROLE_PERMISSIONS["viewer"])
+@pytest.mark.parametrize(
+    "role",
+    ["admin", "supervisor", "operator", "viewer"],
+)
+def test_me_permissions_match_role_matrix(client, role: str) -> None:
+    headers = login(client, role)
+    body = data_ok(client.get("/api/v1/auth/me", headers=headers))
+    assert body["permissions"] == sorted(ROLE_PERMISSIONS[role])
 
 
-def test_operator_cannot_create_user(client) -> None:
+@pytest.mark.parametrize(
+    "method,path,json_body",
+    [
+        (
+            "post",
+            "/api/v1/users",
+            {
+                "username": "placeholder",
+                "password": "Temp@123456",
+                "role_code": "viewer",
+            },
+        ),
+        ("post", "/api/v1/users/1/deactivate", None),
+        ("post", "/api/v1/users/1/reset-password", {"password": "Temp@123456"}),
+        ("post", "/api/v1/dictionaries", {"dict_type": "unit", "code": "X", "name": "x", "sort_order": 0}),
+        ("patch", "/api/v1/dictionaries/1", {"name": "x"}),
+        ("post", "/api/v1/dictionaries/1/deactivate", None),
+    ],
+)
+def test_platform_write_endpoints_require_auth(client, method, path, json_body) -> None:
+    if json_body and "username" in json_body:
+        json_body = {**json_body, "username": _unique_username()}
+    response = getattr(client, method)(path, json=json_body)
+    assert response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "method,path,json_body",
+    [
+        (
+            "post",
+            "/api/v1/users",
+            {
+                "username": "placeholder",
+                "password": "Temp@123456",
+                "role_code": "viewer",
+            },
+        ),
+        ("post", "/api/v1/users/1/deactivate", None),
+        ("post", "/api/v1/users/1/reset-password", {"password": "Temp@123456"}),
+    ],
+)
+def test_operator_cannot_write_users(client, method, path, json_body) -> None:
     operator = login(client, "operator")
-    denied = client.post(
-        "/api/v1/users",
-        headers=operator,
-        json={
-            "username": _unique_username(),
-            "password": "Temp@123456",
-            "role_code": "viewer",
-        },
-    )
+    if json_body and "username" in json_body:
+        json_body = {**json_body, "username": _unique_username()}
+    denied = getattr(client, method)(path, headers=operator, json=json_body)
     assert denied.status_code == 403
 
 
@@ -73,7 +115,9 @@ def test_admin_create_user_and_login(client, auth_headers) -> None:
         )
     )
     assert any(
-        item["resource_id"] == str(created["id"]) for item in logs["items"]
+        item["action"] == "user.create"
+        and item["resource_id"] == str(created["id"])
+        for item in logs["items"]
     )
 
 
@@ -116,6 +160,19 @@ def test_deactivate_user_blocks_login(client, auth_headers) -> None:
         json={"username": username, "password": password},
     )
     assert denied.status_code == 401
+
+    logs = data_ok(
+        client.get(
+            "/api/v1/operation-logs",
+            headers=auth_headers,
+            params={"action": "user.deactivate"},
+        )
+    )
+    assert any(
+        item["action"] == "user.deactivate"
+        and item["resource_id"] == str(created["id"])
+        for item in logs["items"]
+    )
 
 
 def test_cannot_deactivate_self(client, auth_headers) -> None:
@@ -173,6 +230,19 @@ def test_reset_password_allows_new_login(client, auth_headers) -> None:
             json={"username": username, "password": new_password},
         ).status_code
         == 200
+    )
+
+    logs = data_ok(
+        client.get(
+            "/api/v1/operation-logs",
+            headers=auth_headers,
+            params={"action": "user.reset_password"},
+        )
+    )
+    assert any(
+        item["action"] == "user.reset_password"
+        and item["resource_id"] == str(created["id"])
+        for item in logs["items"]
     )
 
 
@@ -241,3 +311,17 @@ def test_dictionary_crud_flow(client, auth_headers) -> None:
         )
     )
     assert all(item["code"] != code for item in after["items"])
+
+    for action in ("dict.create", "dict.update", "dict.deactivate"):
+        logs = data_ok(
+            client.get(
+                "/api/v1/operation-logs",
+                headers=auth_headers,
+                params={"action": action},
+            )
+        )
+        assert any(
+            item["action"] == action
+            and item["resource_id"] == str(created["id"])
+            for item in logs["items"]
+        )
