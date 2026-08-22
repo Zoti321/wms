@@ -85,4 +85,15 @@ uv run pytest tests/uat
 
 说明、staging 前提（`UAT_BASE_URL`）与观测缺口见 [`tests/uat/README.md`](./tests/uat/README.md)。人工抽查签字清单：[`docs/uat/backend-signoff.md`](../../docs/uat/backend-signoff.md)。
 
-若本机/CI 无 MySQL：集成测试会 `pytest.skip`（不注入假登录旁路）。CI 等价策略：提供 MySQL 服务（Compose service 或托管实例）并设置 `DATABASE_URL`/`TEST_DATABASE_URL` 后再跑 `pytest`。
+若本机无 MySQL：集成测试会 `pytest.skip`（不注入假登录旁路）。
+
+### CI（GitHub Actions）
+
+PR 与 push 到 `main` 时，当变更涉及 `services/wms-api/**` 或 workflow 自身，会自动运行 [`.github/workflows/wms-api-test.yml`](../../.github/workflows/wms-api-test.yml)：
+
+1. 启动 MySQL 8.0 服务容器（凭据与 `docker-compose.yml` 一致：`wms`/`wms`，库 `wms`）
+2. `uv sync --frozen`（缓存依赖）→ `uv run pytest -v --tb=short --ignore=tests/uat --fail-on-skipped`
+3. 迁移由测试 `conftest` 会话夹具执行 `alembic upgrade head`（与本地一致）
+4. 日常 CI **不收集** `tests/uat`（与本地默认 `pytest` 相同；发版前另跑 `uv run pytest tests/uat`）
+
+CI 环境变量：`TEST_DATABASE_URL`、`DATABASE_URL` 指向 `127.0.0.1:3306`；无 MySQL 时 CI 会失败而非假绿。

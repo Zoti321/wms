@@ -391,7 +391,7 @@ CREATE TABLE inventory_ledger (
           <tr><th>缺口</th><th>说明</th></tr>
         </thead>
         <tbody>
-          <tr><td>CI 流水线</td><td>仓库尚无 <code>.github/workflows</code>；PR 无自动跑测</td></tr>
+          <tr><td>CI 流水线</td><td><code>.github/workflows/wms-api-test.yml</code>：MySQL 8 服务 + <code>uv run pytest</code>（不含 UAT）；PR / push <code>main</code> 触发</td></tr>
           <tr><td>健康检查</td><td><code>GET /health</code> 仅返回 <code>ok</code>，未探测 MySQL 连通性</td></tr>
           <tr><td>性能/压测</td><td>仅集成测覆盖轻量「并发分配不超卖」；无 P95 / 日单据量压测</td></tr>
           <tr><td>备份恢复演练</td><td>无脚本或 Runbook；M5 另项</td></tr>

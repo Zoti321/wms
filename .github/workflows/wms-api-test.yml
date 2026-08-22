@@ -1,0 +1,62 @@
+name: wms-api tests
+
+on:
+  pull_request:
+    paths:
+      - "services/wms-api/**"
+      - ".github/workflows/wms-api-test.yml"
+  push:
+    branches: [main]
+    paths:
+      - "services/wms-api/**"
+      - ".github/workflows/wms-api-test.yml"
+
+defaults:
+  run:
+    working-directory: services/wms-api
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wms
+          MYSQL_USER: wms
+          MYSQL_PASSWORD: wms
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      TEST_DATABASE_URL: mysql+pymysql://wms:wms@127.0.0.1:3306/wms?charset=utf8mb4
+      DATABASE_URL: mysql+pymysql://wms:wms@127.0.0.1:3306/wms?charset=utf8mb4
+      JWT_SECRET: test-jwt-secret-not-for-prod
+      APP_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: services/wms-api/uv.lock
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+
+      - name: Run integration tests
+        run: uv run pytest -v --tb=short --ignore=tests/uat --fail-on-skipped
