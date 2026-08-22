@@ -81,3 +81,27 @@ class IdempotencyRecord(Base):
         server_default=func.utc_timestamp(),
         nullable=False,
     )
+
+
+class InventoryAlert(Base):
+    """仓+SKU 库存预警事实；同一仓+SKU 至多一条记录，status 区分有效/已解除。"""
+
+    __tablename__ = "inventory_alert"
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "sku_id", name="uq_inventory_alert_wh_sku"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    warehouse_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sku_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    qty_available: Mapped[Decimal] = mapped_column(Numeric(18, 3), nullable=False)
+    safety_stock: Mapped[Decimal] = mapped_column(Numeric(18, 3), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        server_default=func.utc_timestamp(),
+        nullable=False,
+    )
+    cleared_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )

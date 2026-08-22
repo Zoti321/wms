@@ -39,7 +39,7 @@ OPENAPI_DESCRIPTION = """
 OPENAPI_TAGS = [
     {"name": "auth", "description": "登录与当前操作者"},
     {"name": "catalog", "description": "主数据：仓库 / SKU / 库位 / 供应商 / 客户"},
-    {"name": "inventory", "description": "库存余额与流水查询（数量账唯一所有者）"},
+    {"name": "inventory", "description": "库存余额、流水与预警查询（数量账唯一所有者）"},
     {"name": "inbound", "description": "入库单：提交、审核、上架、取消"},
     {"name": "outbound", "description": "出库单：审核分配、拣货实扣、取消释放预留"},
     {"name": "stocktake", "description": "盘点单：加锁、实盘、审核调账、取消释锁"},

@@ -31,6 +31,7 @@ _TRUNCATE_TABLES = (
     "stocktake_order",
     "location_job_lock",
     "inventory_ledger",
+    "inventory_alert",
     "inventory",
     "idempotency_record",
     "location",

@@ -13,6 +13,16 @@ from app.shared.response import ok
 router = APIRouter(tags=["inventory"])
 
 
+@router.get("/inventories/alerts")
+def list_inventory_alerts(
+    warehouse_id: int | None = None,
+    session: Session = Depends(get_db),
+    _: CurrentUser = Depends(get_current_user),
+) -> dict:
+    items = svc.list_alerts(session, warehouse_id=warehouse_id)
+    return ok({"items": items})
+
+
 @router.get("/inventories")
 def list_inventories(
     warehouse_id: int | None = None,
