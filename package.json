@@ -1,0 +1,11 @@
+{
+  "name": "wms-monorepo",
+  "private": true,
+  "packageManager": "pnpm@10.22.0",
+  "scripts": {
+    "dev:web-admin": "pnpm --filter web-admin dev",
+    "build:web-admin": "pnpm --filter web-admin build",
+    "test:web-admin": "pnpm --filter web-admin test",
+    "typecheck:web-admin": "pnpm --filter web-admin typecheck"
+  }
+}
