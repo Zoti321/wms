@@ -396,7 +396,7 @@ CREATE TABLE inventory_ledger (
           <tr><td>健康检查</td><td><code>GET /health</code> 探测 MySQL（<code>SELECT 1</code>）；失败 HTTP 503 + <code>degraded</code>；可选 <code>HEALTH_CHECK_DB=false</code></td></tr>
           <tr><td>性能/压测</td><td>仅集成测覆盖轻量「并发分配不超卖」；无 P95 / 日单据量压测</td></tr>
           <tr><td>备份恢复演练</td><td><a href="runbooks/mysql-backup-restore.md">Runbook</a> 已文档化；季度人工演练待执行</td></tr>
-          <tr><td>监控告警</td><td>错误率、耗时、连接池等待接入</td></tr>
+          <tr><td>监控告警</td><td><code>GET /metrics</code>（Prometheus：HTTP 错误率/耗时、连接池、库存写路径 counter）；告警规则示例见 <a href="runbooks/operational-monitoring.md">Runbook</a>（#15）</td></tr>
           <tr><td>UAT 人工签字</td><td>自动化与 <code>wms-api-uat.yml</code> 门禁就绪；<code>docs/uat/backend-signoff.md</code> 含可执行 API 步骤，三角色抽查待完成</td></tr>
         </tbody>
       </table>
@@ -414,7 +414,7 @@ CREATE TABLE inventory_ledger (
       <ol>
         <li><strong>支撑 Web 管理端</strong>：主数据列表分页（单据列表与用户/字典/权限码已就绪）。</li>
         <li><strong>发版门禁</strong>：PR CI（MySQL + 集成测）+ 发版前手动跑 <code>wms-api-uat.yml</code> 或 <code>pytest tests/uat</code> + UAT 人工签字（<a href="uat/backend-signoff.md">清单</a>）。</li>
-        <li><strong>生产就绪</strong>：健康检查探 DB（已完成）、<a href="runbooks/mysql-backup-restore.md">备份 Runbook</a>（已完成）；staging 上 <code>UAT_BASE_URL</code> 重跑 UAT（见 <a href="uat/staging-uat.md">staging 指南</a>）；基础监控待完成。</li>
+        <li><strong>生产就绪</strong>：健康检查探 DB（已完成）、<a href="runbooks/mysql-backup-restore.md">备份 Runbook</a>（已完成）、<a href="runbooks/operational-monitoring.md">运行监控</a>（#15 已完成）；staging 上 <code>UAT_BASE_URL</code> 重跑 UAT（见 <a href="uat/staging-uat.md">staging 指南</a>）；三角色 UAT 签字待完成。</li>
       </ol>
 
       <div class="callout">

@@ -11,6 +11,10 @@ from sqlalchemy.orm import Session
 
 from app.inventory.application import alert_evaluator, idempotency_store
 from app.inventory.application.types import (
+    ADJUST_SCOPE,
+    ALLOCATE_SCOPE,
+    DEDUCT_SCOPE,
+    RELEASE_SCOPE,
     InventoryConflictError,
     InventoryInsufficientError,
     MutationResult,
@@ -18,6 +22,14 @@ from app.inventory.application.types import (
     fmt_qty,
 )
 from app.inventory.infrastructure.models import InventoryBalance, InventoryLedger
+from app.shared.metrics import record_inventory_operation
+
+_SCOPE_OPERATION = {
+    ALLOCATE_SCOPE: "allocate",
+    DEDUCT_SCOPE: "pick",
+    RELEASE_SCOPE: "release",
+    ADJUST_SCOPE: "adjust",
+}
 
 
 @dataclass(frozen=True)
@@ -137,43 +149,61 @@ def book_mutation(
     apply: ApplyFn,
 ) -> MutationResult:
     """幂等 → 余额变更 → 流水 → 幂等落库 → 预警；各 mutation 只提供 apply 逻辑。"""
-    replay = idempotency_store.try_replay(
-        session, scope=ctx.scope, key=ctx.idempotency_key
-    )
-    if replay is not None:
-        return replay
+    operation = _SCOPE_OPERATION.get(ctx.scope)
+    try:
+        replay = idempotency_store.try_replay(
+            session, scope=ctx.scope, key=ctx.idempotency_key
+        )
+        if replay is not None:
+            if operation is not None:
+                record_inventory_operation(operation, "success")
+            return replay
 
-    balance = get_balance(
-        session,
-        warehouse_id=ctx.warehouse_id,
-        sku_id=ctx.sku_id,
-        location_id=ctx.location_id,
-        create_if_missing=ctx.create_if_missing,
-    )
-    balance, change_qty = apply(session, balance)
+        balance = get_balance(
+            session,
+            warehouse_id=ctx.warehouse_id,
+            sku_id=ctx.sku_id,
+            location_id=ctx.location_id,
+            create_if_missing=ctx.create_if_missing,
+        )
+        balance, change_qty = apply(session, balance)
 
-    ledger = write_ledger(
-        session,
-        balance=balance,
-        change_qty=change_qty,
-        ref_type=ctx.ref_type,
-        ref_id=ctx.ref_id,
-        ref_line_id=ctx.ref_line_id,
-        ref_no=ctx.ref_no,
-        operator_id=ctx.operator_id,
-    )
-    mutation = mutation_result(balance, ledger.id)
-    idempotency_store.store_mutation(
-        session,
-        scope=ctx.scope,
-        key=ctx.idempotency_key,
-        result=mutation,
-    )
-    alert_evaluator.evaluate(
-        session, warehouse_id=ctx.warehouse_id, sku_id=ctx.sku_id
-    )
-    session.flush()
-    return mutation
+        ledger = write_ledger(
+            session,
+            balance=balance,
+            change_qty=change_qty,
+            ref_type=ctx.ref_type,
+            ref_id=ctx.ref_id,
+            ref_line_id=ctx.ref_line_id,
+            ref_no=ctx.ref_no,
+            operator_id=ctx.operator_id,
+        )
+        mutation = mutation_result(balance, ledger.id)
+        idempotency_store.store_mutation(
+            session,
+            scope=ctx.scope,
+            key=ctx.idempotency_key,
+            result=mutation,
+        )
+        alert_evaluator.evaluate(
+            session, warehouse_id=ctx.warehouse_id, sku_id=ctx.sku_id
+        )
+        session.flush()
+        if operation is not None:
+            record_inventory_operation(operation, "success")
+        return mutation
+    except InventoryInsufficientError:
+        if operation is not None:
+            record_inventory_operation(operation, "insufficient")
+        raise
+    except InventoryConflictError:
+        if operation is not None:
+            record_inventory_operation(operation, "conflict")
+        raise
+    except Exception:
+        if operation is not None:
+            record_inventory_operation(operation, "error")
+        raise
 
 
 def list_balances(

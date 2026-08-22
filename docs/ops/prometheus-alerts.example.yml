@@ -1,0 +1,57 @@
+# 仓脉 WMS API — Prometheus 告警规则示例
+# 复制到 Alertmanager/Prometheus 规则目录后按环境调整阈值与 labels。
+# 指标名前缀 wms_http_* 来自 prometheus-fastapi-instrumentator（namespace=wms, subsystem=http）。
+
+groups:
+  - name: wms-api
+    rules:
+      - alert: WmsApiHigh5xxRate
+        expr: |
+          (
+            sum(rate(wms_http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(wms_http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WMS API 5xx 错误率过高"
+          description: "5 分钟窗口 5xx 占比超过 5%（请按 staging 实测调整阈值）。"
+
+      - alert: WmsApiHighLatencyP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(wms_http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WMS API P95 延迟过高"
+          description: "P95 超过 2s（占位阈值，发版前在 staging 校准）。"
+
+      - alert: WmsDbPoolNearExhaustion
+        expr: |
+          (
+            wms_db_pool_checked_out
+            /
+            clamp_min(wms_db_pool_size, 1)
+          ) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "MySQL 连接池 checked-out 比例过高"
+          description: "checked_out / pool_size > 85%。"
+
+      - alert: WmsInventoryAllocateInsufficientSpike
+        expr: |
+          increase(wms_inventory_operation_total{operation="allocate",result="insufficient"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "库存分配不足失败突增"
+          description: "5 分钟内 allocate insufficient 超过 10 次（占位阈值）。"

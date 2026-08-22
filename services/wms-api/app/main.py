@@ -24,6 +24,7 @@ from app.platform.api.auth import router as auth_router
 from app.platform.api.router import router as platform_router
 from app.shared.config import get_settings
 from app.shared.health import build_health_response
+from app.shared.metrics import setup_metrics
 from app.stocktake.api.router import router as stocktake_router
 
 OPENAPI_DESCRIPTION = """
@@ -69,6 +70,8 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    setup_metrics(application, settings)
 
     @application.exception_handler(HTTPException)
     async def http_exception_handler(

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
         default=2.0,
         alias="HEALTH_CHECK_DB_TIMEOUT_SECONDS",
     )
+    metrics_enabled_override: bool | None = Field(default=None, alias="METRICS_ENABLED")
 
     jwt_secret: str = Field(default="change-me-in-production", alias="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
@@ -41,6 +42,12 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env.lower() in {"prod", "production"}
+
+    @property
+    def metrics_enabled(self) -> bool:
+        if self.metrics_enabled_override is not None:
+            return self.metrics_enabled_override
+        return self.app_env.lower() not in {"test", "testing"}
 
 
 @lru_cache

@@ -16,6 +16,7 @@ uv run uvicorn app.main:app --reload --app-dir .
 ```
 
 健康检查：`GET /health`（JSON：`status` + `checks.database`；DB 不可达 HTTP 503；本地无库可设 `HEALTH_CHECK_DB=false`）  
+运行监控：`GET /metrics`（Prometheus 文本；`METRICS_ENABLED=false` 时 404；详见仓库根 `docs/runbooks/operational-monitoring.md`）  
 备份恢复：见仓库根 `docs/runbooks/mysql-backup-restore.md`
 登录：`POST /api/v1/auth/login`（body：`{"username":"admin","password":"Admin@123456"}`）  
 主数据（需 Bearer）：`/api/v1/warehouses`、`/skus`、`/locations`、`/suppliers`、`/customers`；删除一律 `POST .../{id}/deactivate`（停用，不物理删除）。库位空间状态字段为 `space_status`（idle/occupied/frozen），勿与库存冻结数量混淆。  
