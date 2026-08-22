@@ -33,3 +33,7 @@ packages = ["app"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "mysql: 需要可达的 MySQL",
+    "uat: 发版前后端用户验收套件（默认不收集；uv run pytest tests/uat）",
+]

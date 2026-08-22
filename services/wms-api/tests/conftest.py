@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 from alembic import command
@@ -49,6 +50,27 @@ def _database_url() -> str:
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "mysql: 需要可达的 MySQL")
+
+
+def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool | None:
+    """日常 `pytest` 不收集 tests/uat；显式传入该路径时才跑发版门禁。"""
+    uat_dir = Path(__file__).resolve().parent / "uat"
+    path = Path(collection_path).resolve()
+    try:
+        path.relative_to(uat_dir)
+    except ValueError:
+        return None
+    for raw in config.args:
+        if str(raw).startswith("-"):
+            continue
+        arg = Path(str(raw))
+        resolved = arg.resolve() if arg.exists() else (Path.cwd() / arg).resolve()
+        try:
+            resolved.relative_to(uat_dir)
+            return False
+        except ValueError:
+            continue
+    return True
 
 
 def _truncate_business_tables(database_url: str) -> None:

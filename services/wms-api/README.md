@@ -76,4 +76,12 @@ UPDATE users SET password_hash = '<新哈希>' WHERE username = 'admin';
 uv run pytest
 ```
 
+发版/上线前另跑后端 UAT（独立套件，日常 PR 不收集）：
+
+```bash
+uv run pytest tests/uat
+```
+
+说明、staging 前提（`UAT_BASE_URL`）与观测缺口见 [`tests/uat/README.md`](./tests/uat/README.md)。人工抽查签字清单：[`docs/uat/backend-signoff.md`](../../docs/uat/backend-signoff.md)。
+
 若本机/CI 无 MySQL：集成测试会 `pytest.skip`（不注入假登录旁路）。CI 等价策略：提供 MySQL 服务（Compose service 或托管实例）并设置 `DATABASE_URL`/`TEST_DATABASE_URL` 后再跑 `pytest`。
