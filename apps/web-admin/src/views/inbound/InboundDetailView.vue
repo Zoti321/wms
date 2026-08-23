@@ -182,6 +182,10 @@ function goLedgers(lineId: number): void {
   })
 }
 
+function goEdit(): void {
+  void router.push({ name: ROUTE_NAMES.inboundEdit, params: { id: orderId.value } })
+}
+
 function goBack(): void {
   void router.push({ name: ROUTE_NAMES.inboundList })
 }
@@ -212,6 +216,7 @@ onMounted(() => {
           >
             提交
           </el-button>
+          <el-button v-permission="'inbound:write'" @click="goEdit">编辑</el-button>
           <el-button
             v-permission="'inbound:write'"
             :loading="actionLoading"

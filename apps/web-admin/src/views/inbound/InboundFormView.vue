@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete } from '@element-plus/icons-vue'
 
-import { createInboundOrder } from '@/api/inboundOrders'
+import {
+  createInboundOrder,
+  getInboundOrder,
+  updateInboundOrder,
+} from '@/api/inboundOrders'
 import { listSkus } from '@/api/skus'
 import { listSuppliers } from '@/api/suppliers'
 import { INBOUND_ORDER_TYPE_LABEL } from '@/constants/labels'
@@ -21,12 +25,25 @@ interface LineForm {
 }
 
 const app = useAppStore()
+const route = useRoute()
 const router = useRouter()
 
 const formRef = ref<FormInstance>()
 const saving = ref(false)
+const loading = ref(false)
 const skuOptions = ref<Sku[]>([])
 const supplierOptions = ref<Supplier[]>([])
+
+const orderId = computed(() => {
+  const raw = route.params.id
+  if (raw == null || raw === '') {
+    return null
+  }
+  const id = Number(raw)
+  return Number.isFinite(id) ? id : null
+})
+
+const isEdit = computed(() => route.name === ROUTE_NAMES.inboundEdit && orderId.value != null)
 
 const form = reactive({
   order_type: 'purchase' as InboundOrderType,
@@ -39,6 +56,8 @@ const formRules: FormRules = {
   order_type: [{ required: true, message: '请选择入库类型', trigger: 'change' }],
 }
 
+const pageTitle = computed(() => (isEdit.value ? '编辑入库单' : '新建入库单'))
+
 async function loadOptions(): Promise<void> {
   try {
     const [skus, suppliers] = await Promise.all([
@@ -49,6 +68,39 @@ async function loadOptions(): Promise<void> {
     supplierOptions.value = suppliers.items
   } catch (error) {
     ElMessage.error(errorMessage(error, '加载选项失败'))
+  }
+}
+
+async function loadOrder(): Promise<void> {
+  if (!isEdit.value || orderId.value == null) {
+    return
+  }
+
+  loading.value = true
+  try {
+    const order = await getInboundOrder(orderId.value)
+    if (order.status !== 'draft') {
+      ElMessage.warning('仅草稿状态可编辑')
+      await router.replace({
+        name: ROUTE_NAMES.inboundDetail,
+        params: { id: order.id },
+      })
+      return
+    }
+    form.order_type = order.order_type
+    form.supplier_id = order.supplier_id ?? undefined
+    form.remark = order.remark ?? ''
+    form.lines =
+      order.lines.length > 0
+        ? order.lines.map((line) => ({
+            sku_id: line.sku_id,
+            planned_qty: line.planned_qty,
+          }))
+        : [{ sku_id: undefined, planned_qty: '' }]
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '加载入库单失败'))
+  } finally {
+    loading.value = false
   }
 }
 
@@ -88,36 +140,58 @@ async function onSubmit(): Promise<void> {
 
   saving.value = true
   try {
-    const order = await createInboundOrder({
-      warehouse_id: app.warehouseId,
-      order_type: form.order_type,
-      supplier_id: form.supplier_id ?? null,
-      remark: form.remark.trim() || null,
-      lines,
-    })
-    ElMessage.success('创建成功')
-    await router.replace({ name: ROUTE_NAMES.inboundDetail, params: { id: order.id } })
+    if (isEdit.value && orderId.value != null) {
+      const order = await updateInboundOrder(orderId.value, {
+        supplier_id: form.supplier_id ?? null,
+        remark: form.remark.trim() || null,
+        lines,
+      })
+      ElMessage.success('保存成功')
+      await router.replace({ name: ROUTE_NAMES.inboundDetail, params: { id: order.id } })
+    } else {
+      const order = await createInboundOrder({
+        warehouse_id: app.warehouseId,
+        order_type: form.order_type,
+        supplier_id: form.supplier_id ?? null,
+        remark: form.remark.trim() || null,
+        lines,
+      })
+      ElMessage.success('创建成功')
+      await router.replace({ name: ROUTE_NAMES.inboundDetail, params: { id: order.id } })
+    }
   } catch (error) {
-    ElMessage.error(errorMessage(error, '创建失败'))
+    ElMessage.error(errorMessage(error, isEdit.value ? '保存失败' : '创建失败'))
   } finally {
     saving.value = false
   }
 }
 
 function goBack(): void {
-  void router.push({ name: ROUTE_NAMES.inboundList })
+  if (isEdit.value && orderId.value != null) {
+    void router.push({ name: ROUTE_NAMES.inboundDetail, params: { id: orderId.value } })
+  } else {
+    void router.push({ name: ROUTE_NAMES.inboundList })
+  }
 }
+
+watch(
+  () => route.params.id,
+  () => {
+    void loadOrder()
+  },
+)
 
 onMounted(() => {
   void loadOptions()
+  void loadOrder()
 })
 </script>
 
 <template>
-  <div class="page-panel">
+  <div v-loading="loading" class="page-panel">
     <div class="page-toolbar">
-      <span>新建入库单</span>
-      <el-button @click="goBack">返回列表</el-button>
+      <span>{{ pageTitle }}</span>
+      <el-button @click="goBack">返回</el-button>
     </div>
 
     <el-alert
@@ -137,7 +211,7 @@ onMounted(() => {
       style="max-width: 880px"
     >
       <el-form-item label="入库类型" prop="order_type">
-        <el-select v-model="form.order_type" style="width: 240px">
+        <el-select v-model="form.order_type" :disabled="isEdit" style="width: 240px">
           <el-option
             v-for="(label, value) in INBOUND_ORDER_TYPE_LABEL"
             :key="value"
@@ -205,7 +279,7 @@ onMounted(() => {
           :disabled="app.warehouseId == null"
           @click="onSubmit"
         >
-          创建草稿
+          {{ isEdit ? '保存' : '创建草稿' }}
         </el-button>
         <el-button @click="goBack">取消</el-button>
       </el-form-item>

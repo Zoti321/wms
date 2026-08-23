@@ -143,6 +143,102 @@ describe('resolveRouteGuard', () => {
     expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
   })
 
+  it('forbids outbound edit without outbound:write', async () => {
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.outboundEdit,
+        fullPath: '/outbound/1/edit',
+        meta: { permission: 'outbound:write' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['outbound:read'] },
+        hasPermission: (p) => p === 'outbound:read',
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
+  })
+
+  it('allows outbound edit with outbound:write', async () => {
+    const hasPermission = vi.fn().mockReturnValue(true)
+
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.outboundEdit,
+        fullPath: '/outbound/1/edit',
+        meta: { permission: 'outbound:write' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['outbound:write'] },
+        hasPermission,
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(hasPermission).toHaveBeenCalledWith('outbound:write')
+    expect(result).toBe(true)
+  })
+
+  it('forbids inbound create without inbound:write', async () => {
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.inboundCreate,
+        fullPath: '/inbound/create',
+        meta: { permission: 'inbound:write' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['inbound:read'] },
+        hasPermission: (p) => p === 'inbound:read',
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
+  })
+
+  it('forbids inbound edit without inbound:write', async () => {
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.inboundEdit,
+        fullPath: '/inbound/1/edit',
+        meta: { permission: 'inbound:write' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['inbound:read'] },
+        hasPermission: (p) => p === 'inbound:read',
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
+  })
+
+  it('allows inbound edit with inbound:write', async () => {
+    const hasPermission = vi.fn().mockReturnValue(true)
+
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.inboundEdit,
+        fullPath: '/inbound/1/edit',
+        meta: { permission: 'inbound:write' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['inbound:write'] },
+        hasPermission,
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(hasPermission).toHaveBeenCalledWith('inbound:write')
+    expect(result).toBe(true)
+  })
+
   it('allows stocktake routes when stocktake:read is granted', async () => {
     const hasPermission = vi.fn().mockReturnValue(true)
 

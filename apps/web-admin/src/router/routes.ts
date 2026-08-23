@@ -10,6 +10,7 @@ export const ROUTE_NAMES = {
   catalogCustomers: 'catalog-customers',
   inboundList: 'inbound-list',
   inboundCreate: 'inbound-create',
+  inboundEdit: 'inbound-edit',
   inboundDetail: 'inbound-detail',
   outboundList: 'outbound-list',
   outboundCreate: 'outbound-create',
@@ -114,6 +115,15 @@ export const appRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/inbound/InboundFormView.vue'),
         meta: {
           title: '新建入库单',
+          permission: 'inbound:write',
+        },
+      },
+      {
+        path: 'inbound/:id/edit',
+        name: ROUTE_NAMES.inboundEdit,
+        component: () => import('@/views/inbound/InboundFormView.vue'),
+        meta: {
+          title: '编辑入库单',
           permission: 'inbound:write',
         },
       },
