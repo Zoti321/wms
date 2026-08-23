@@ -82,4 +82,34 @@ export const SIDE_MENU: SideMenuEntry[] = [
       },
     ],
   },
+  {
+    kind: 'group',
+    title: '系统管理',
+    children: [
+      {
+        kind: 'item',
+        title: '用户',
+        path: '/platform/users',
+        permission: 'user:write',
+      },
+      {
+        kind: 'item',
+        title: '字典',
+        path: '/platform/dictionaries',
+        permission: 'dict:read',
+      },
+      {
+        kind: 'item',
+        title: '操作日志',
+        path: '/platform/operation-logs',
+        permission: 'audit:read',
+      },
+      {
+        kind: 'item',
+        title: '日报',
+        path: '/platform/reports/daily',
+        permission: 'report:read',
+      },
+    ],
+  },
 ]

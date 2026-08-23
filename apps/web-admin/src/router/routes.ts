@@ -18,6 +18,10 @@ export const ROUTE_NAMES = {
   stocktakeList: 'stocktake-list',
   stocktakeCreate: 'stocktake-create',
   stocktakeDetail: 'stocktake-detail',
+  platformUsers: 'platform-users',
+  platformDictionaries: 'platform-dictionaries',
+  platformOperationLogs: 'platform-operation-logs',
+  platformDailyReport: 'platform-daily-report',
   forbidden: 'forbidden',
 } as const
 
@@ -180,6 +184,42 @@ export const appRoutes: RouteRecordRaw[] = [
         meta: {
           title: '库存预警',
           permission: 'inventory:read',
+        },
+      },
+      {
+        path: 'platform/users',
+        name: ROUTE_NAMES.platformUsers,
+        component: () => import('@/views/platform/UserListView.vue'),
+        meta: {
+          title: '用户管理',
+          permission: 'user:write',
+        },
+      },
+      {
+        path: 'platform/dictionaries',
+        name: ROUTE_NAMES.platformDictionaries,
+        component: () => import('@/views/platform/DictListView.vue'),
+        meta: {
+          title: '字典管理',
+          permission: 'dict:read',
+        },
+      },
+      {
+        path: 'platform/operation-logs',
+        name: ROUTE_NAMES.platformOperationLogs,
+        component: () => import('@/views/platform/OperationLogListView.vue'),
+        meta: {
+          title: '操作日志',
+          permission: 'audit:read',
+        },
+      },
+      {
+        path: 'platform/reports/daily',
+        name: ROUTE_NAMES.platformDailyReport,
+        component: () => import('@/views/platform/DailyReportView.vue'),
+        meta: {
+          title: '日报',
+          permission: 'report:read',
         },
       },
     ],

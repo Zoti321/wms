@@ -220,4 +220,118 @@ describe('resolveRouteGuard', () => {
     expect(hasPermission).toHaveBeenCalledWith('inventory:read')
     expect(result).toBe(true)
   })
+
+  it('forbids platform users route without user:write', async () => {
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.platformUsers,
+        fullPath: '/platform/users',
+        meta: { permission: 'user:write' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['dict:read'] },
+        hasPermission: (p) => p === 'dict:read',
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
+  })
+
+  it('allows platform dictionaries with dict:read', async () => {
+    const hasPermission = vi.fn().mockReturnValue(true)
+
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.platformDictionaries,
+        fullPath: '/platform/dictionaries',
+        meta: { permission: 'dict:read' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['dict:read'] },
+        hasPermission,
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(hasPermission).toHaveBeenCalledWith('dict:read')
+    expect(result).toBe(true)
+  })
+
+  it('forbids platform operation logs without audit:read', async () => {
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.platformOperationLogs,
+        fullPath: '/platform/operation-logs',
+        meta: { permission: 'audit:read' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['report:read'] },
+        hasPermission: (p) => p === 'report:read',
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
+  })
+
+  it('allows platform daily report with report:read', async () => {
+    const hasPermission = vi.fn().mockReturnValue(true)
+
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.platformDailyReport,
+        fullPath: '/platform/reports/daily',
+        meta: { permission: 'report:read' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['report:read'] },
+        hasPermission,
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(hasPermission).toHaveBeenCalledWith('report:read')
+    expect(result).toBe(true)
+  })
+
+  it('forbids platform daily report without report:read', async () => {
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.platformDailyReport,
+        fullPath: '/platform/reports/daily',
+        meta: { permission: 'report:read' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['dict:read'] },
+        hasPermission: (p) => p === 'dict:read',
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
+  })
+
+  it('forbids platform dictionaries without dict:read', async () => {
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.platformDictionaries,
+        fullPath: '/platform/dictionaries',
+        meta: { permission: 'dict:read' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['report:read'] },
+        hasPermission: (p) => p === 'report:read',
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
+  })
 })

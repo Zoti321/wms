@@ -23,6 +23,8 @@ function resolveApiBaseUrl(): string {
   return base ? `${base.replace(/\/$/, '')}/api/v1` : '/api/v1'
 }
 
+export { resolveApiBaseUrl }
+
 function clearTokenIfUnauthorized(code: number, httpStatus?: number): void {
   if (code === 40100 || httpStatus === 401) {
     clearAccessToken()

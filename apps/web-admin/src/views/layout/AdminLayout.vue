@@ -3,11 +3,15 @@ import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Box,
+  DataAnalysis,
+  Document,
   Goods,
   HomeFilled,
   OfficeBuilding,
   Sell,
+  Setting,
   TakeawayBox,
+  User,
 } from '@element-plus/icons-vue'
 
 import { SIDE_MENU, type SideMenuEntry } from '@/router/menu'
@@ -25,10 +29,15 @@ const iconMap: Record<string, typeof HomeFilled> = {
   '/inbound': TakeawayBox,
   '/outbound': Sell,
   库存: Box,
+  系统管理: Setting,
   '/catalog/skus': Goods,
   '/catalog/locations': OfficeBuilding,
   '/inventory': Box,
   '/inventory/ledgers': Box,
+  '/platform/users': User,
+  '/platform/dictionaries': Document,
+  '/platform/operation-logs': Document,
+  '/platform/reports/daily': DataAnalysis,
 }
 
 function visible(permission?: string): boolean {

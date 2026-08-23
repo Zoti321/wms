@@ -92,3 +92,29 @@ export const INVENTORY_ALERT_STATUS_TAG_TYPE: Record<
   open: 'danger',
   cleared: 'success',
 }
+
+export const ROLE_CODE_LABEL: Record<string, string> = {
+  admin: '系统管理员',
+  supervisor: '仓库主管',
+  operator: '仓管员',
+  viewer: '只读用户',
+}
+
+export const OPERATION_ACTION_LABEL: Record<string, string> = {
+  'auth.login': '登录',
+  'user.create': '创建用户',
+  'user.deactivate': '停用用户',
+  'user.reset_password': '重置密码',
+  'dict.create': '创建字典',
+  'dict.update': '更新字典',
+  'dict.deactivate': '停用字典',
+  'inbound.approve': '审核入库',
+  'outbound.approve': '审核出库',
+  'stocktake.approve': '审核盘点',
+}
+
+export const DICT_TYPE_LABEL: Record<string, string> = {
+  unit: '计量单位',
+  order_type: '单据类型',
+  cancel_reason: '取消原因',
+}

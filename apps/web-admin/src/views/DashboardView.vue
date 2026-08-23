@@ -57,6 +57,12 @@ const shortcuts = computed(() => {
       route: ROUTE_NAMES.inventoryAlerts,
       permission: 'inventory:read',
     },
+    {
+      title: '日报',
+      desc: '查看出入库与库存汇总',
+      route: ROUTE_NAMES.platformDailyReport,
+      permission: 'report:read',
+    },
   ]
   return items.filter((item) => !item.permission || auth.hasPermission(item.permission))
 })

@@ -106,3 +106,90 @@ describe('SIDE_MENU inventory alerts entry', () => {
     expect(visibleChildren.some((child) => child.path === '/inventory/alerts')).toBe(false)
   })
 })
+
+describe('SIDE_MENU platform group', () => {
+  it('includes system management group with permission-gated children', () => {
+    const platformGroup = SIDE_MENU.find(
+      (entry) => entry.kind === 'group' && entry.title === '系统管理',
+    )
+    expect(platformGroup?.kind).toBe('group')
+    if (platformGroup?.kind !== 'group') {
+      return
+    }
+    expect(platformGroup.children).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: '/platform/users',
+          permission: 'user:write',
+        }),
+        expect.objectContaining({
+          path: '/platform/dictionaries',
+          permission: 'dict:read',
+        }),
+        expect.objectContaining({
+          path: '/platform/operation-logs',
+          permission: 'audit:read',
+        }),
+        expect.objectContaining({
+          path: '/platform/reports/daily',
+          permission: 'report:read',
+        }),
+      ]),
+    )
+  })
+
+  it('hides entire platform group when user has no platform permissions', () => {
+    setActivePinia(createPinia())
+    const auth = useAuthStore()
+    auth.$patch({
+      user: {
+        id: 1,
+        username: 'operator',
+        role_code: 'operator',
+        permissions: ['inbound:read'],
+      },
+    })
+
+    const platformGroup = SIDE_MENU.find(
+      (entry) => entry.kind === 'group' && entry.title === '系统管理',
+    )
+    if (platformGroup?.kind !== 'group') {
+      throw new Error('platform group missing')
+    }
+    const visibleChildren = platformGroup.children.filter(
+      (child) => !child.permission || auth.hasPermission(child.permission),
+    )
+    expect(visibleChildren).toHaveLength(0)
+  })
+
+  it('shows dict and report entries for supervisor', () => {
+    setActivePinia(createPinia())
+    const auth = useAuthStore()
+    auth.$patch({
+      user: {
+        id: 1,
+        username: 'supervisor',
+        role_code: 'supervisor',
+        permissions: ['dict:read', 'audit:read', 'report:read'],
+      },
+    })
+
+    const platformGroup = SIDE_MENU.find(
+      (entry) => entry.kind === 'group' && entry.title === '系统管理',
+    )
+    if (platformGroup?.kind !== 'group') {
+      throw new Error('platform group missing')
+    }
+    const visibleChildren = platformGroup.children.filter(
+      (child) => !child.permission || auth.hasPermission(child.permission),
+    )
+    expect(visibleChildren.map((c) => c.path)).toEqual(
+      expect.arrayContaining([
+        '/platform/dictionaries',
+        '/platform/operation-logs',
+        '/platform/reports/daily',
+      ]),
+    )
+    expect(visibleChildren.some((c) => c.path === '/platform/users')).toBe(false)
+  })
+})

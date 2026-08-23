@@ -32,6 +32,11 @@ export type AllocationInput = components['schemas']['AllocationInput']
 export type PickRequest = components['schemas']['PickRequest']
 export type StocktakeOrderCreate = components['schemas']['StocktakeOrderCreate']
 export type CountLineInput = components['schemas']['CountLineInput']
+export type CreateUserRequest = components['schemas']['CreateUserRequest']
+export type ResetPasswordRequest = components['schemas']['ResetPasswordRequest']
+export type AssignRoleRequest = components['schemas']['AssignRoleRequest']
+export type CreateDictItemRequest = components['schemas']['CreateDictItemRequest']
+export type UpdateDictItemRequest = components['schemas']['UpdateDictItemRequest']
 
 /**
  * 登录/业务 data 载荷。FastAPI 路由以 ok(dict) 返回且未声明 response_model，
@@ -253,6 +258,45 @@ export interface InventoryAlert {
   safety_stock: string
   status: InventoryAlertStatus
   created_at: string
+}
+
+export interface PlatformUser {
+  id: number
+  username: string
+  role_code: string
+  status: number
+}
+
+export interface DictItem {
+  id: number
+  dict_type: string
+  code: string
+  name: string
+  sort_order: number
+  status: number
+}
+
+export interface OperationLog {
+  id: number
+  operator_id: number
+  operator_name: string
+  action: string
+  resource_type: string | null
+  resource_id: string | null
+  detail: string | null
+  created_at: string
+}
+
+export interface DailyReport {
+  warehouse_id: number
+  business_date: string
+  inbound_order_count: number
+  putaway_qty: string
+  outbound_order_count: number
+  picked_qty: string
+  sku_count: number
+  total_available: string
+  open_alert_count: number
 }
 
 export class ApiError extends Error {
