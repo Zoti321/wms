@@ -15,8 +15,7 @@
 uv run pytest tests/uat
 
 # staging / 已部署实例
-# PowerShell
-$env:UAT_BASE_URL="https://staging.example.com"
+export UAT_BASE_URL="https://staging.example.com"
 uv run pytest tests/uat
 ```
 

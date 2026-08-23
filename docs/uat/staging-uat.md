@@ -30,12 +30,7 @@
 ```bash
 cd services/wms-api
 
-# Bash
 export UAT_BASE_URL="https://staging.example.com"
-uv run pytest tests/uat -v --fail-on-skipped
-
-# PowerShell
-$env:UAT_BASE_URL="https://staging.example.com"
 uv run pytest tests/uat -v --fail-on-skipped
 ```
 
