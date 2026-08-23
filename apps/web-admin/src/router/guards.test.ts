@@ -334,4 +334,61 @@ describe('resolveRouteGuard', () => {
 
     expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
   })
+
+  it('forbids catalog warehouse route without catalog:read', async () => {
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.catalogWarehouses,
+        fullPath: '/catalog/warehouses',
+        meta: { permission: 'catalog:read' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['inbound:read'] },
+        hasPermission: (p) => p === 'inbound:read',
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
+  })
+
+  it('allows catalog supplier route with catalog:read', async () => {
+    const hasPermission = vi.fn().mockReturnValue(true)
+
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.catalogSuppliers,
+        fullPath: '/catalog/suppliers',
+        meta: { permission: 'catalog:read' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['catalog:read'] },
+        hasPermission,
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(hasPermission).toHaveBeenCalledWith('catalog:read')
+    expect(result).toBe(true)
+  })
+
+  it('forbids catalog customer route without catalog:read', async () => {
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.catalogCustomers,
+        fullPath: '/catalog/customers',
+        meta: { permission: 'catalog:read' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['inbound:read'] },
+        hasPermission: (p) => p === 'inbound:read',
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
+  })
 })

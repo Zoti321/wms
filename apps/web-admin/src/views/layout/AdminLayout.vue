@@ -10,6 +10,7 @@ import {
   OfficeBuilding,
   Sell,
   Setting,
+  Shop,
   TakeawayBox,
   User,
 } from '@element-plus/icons-vue'
@@ -32,6 +33,9 @@ const iconMap: Record<string, typeof HomeFilled> = {
   系统管理: Setting,
   '/catalog/skus': Goods,
   '/catalog/locations': OfficeBuilding,
+  '/catalog/warehouses': OfficeBuilding,
+  '/catalog/suppliers': Shop,
+  '/catalog/customers': User,
   '/inventory': Box,
   '/inventory/ledgers': Box,
   '/platform/users': User,

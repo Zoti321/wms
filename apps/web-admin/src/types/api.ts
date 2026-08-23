@@ -37,6 +37,12 @@ export type ResetPasswordRequest = components['schemas']['ResetPasswordRequest']
 export type AssignRoleRequest = components['schemas']['AssignRoleRequest']
 export type CreateDictItemRequest = components['schemas']['CreateDictItemRequest']
 export type UpdateDictItemRequest = components['schemas']['UpdateDictItemRequest']
+export type WarehouseCreate = components['schemas']['WarehouseCreate']
+export type WarehouseUpdate = components['schemas']['WarehouseUpdate']
+export type SupplierCreate = components['schemas']['SupplierCreate']
+export type SupplierUpdate = components['schemas']['SupplierUpdate']
+export type CustomerCreate = components['schemas']['CustomerCreate']
+export type CustomerUpdate = components['schemas']['CustomerUpdate']
 
 /**
  * 登录/业务 data 载荷。FastAPI 路由以 ok(dict) 返回且未声明 response_model，

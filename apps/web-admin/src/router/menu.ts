@@ -37,6 +37,24 @@ export const SIDE_MENU: SideMenuEntry[] = [
         path: '/catalog/locations',
         permission: 'catalog:read',
       },
+      {
+        kind: 'item',
+        title: '仓库',
+        path: '/catalog/warehouses',
+        permission: 'catalog:read',
+      },
+      {
+        kind: 'item',
+        title: '供应商',
+        path: '/catalog/suppliers',
+        permission: 'catalog:read',
+      },
+      {
+        kind: 'item',
+        title: '客户',
+        path: '/catalog/customers',
+        permission: 'catalog:read',
+      },
     ],
   },
   {

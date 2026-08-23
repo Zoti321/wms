@@ -193,3 +193,40 @@ describe('SIDE_MENU platform group', () => {
     expect(visibleChildren.some((c) => c.path === '/platform/users')).toBe(false)
   })
 })
+
+describe('SIDE_MENU catalog group', () => {
+  it('includes warehouse, supplier, and customer under catalog group', () => {
+    const catalogGroup = SIDE_MENU.find(
+      (entry) => entry.kind === 'group' && entry.title === '主数据',
+    )
+    expect(catalogGroup?.kind).toBe('group')
+    if (catalogGroup?.kind !== 'group') {
+      return
+    }
+    expect(catalogGroup.children).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: '/catalog/warehouses', permission: 'catalog:read' }),
+        expect.objectContaining({ path: '/catalog/suppliers', permission: 'catalog:read' }),
+        expect.objectContaining({ path: '/catalog/customers', permission: 'catalog:read' }),
+      ]),
+    )
+  })
+
+  it('hides catalog entries when catalog:read is missing', () => {
+    setActivePinia(createPinia())
+    const auth = useAuthStore()
+    auth.$patch({
+      user: { id: 1, username: 'viewer', role_code: 'viewer', permissions: ['inbound:read'] },
+    })
+
+    const catalogGroup = SIDE_MENU.find(
+      (entry) => entry.kind === 'group' && entry.title === '主数据',
+    )
+    if (catalogGroup?.kind !== 'group') {
+      throw new Error('catalog group missing')
+    }
+    expect(catalogGroup.children.every((child) => auth.hasPermission(child.permission!))).toBe(
+      false,
+    )
+  })
+})

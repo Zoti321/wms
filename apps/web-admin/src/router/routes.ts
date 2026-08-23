@@ -5,6 +5,9 @@ export const ROUTE_NAMES = {
   dashboard: 'dashboard',
   catalogSkus: 'catalog-skus',
   catalogLocations: 'catalog-locations',
+  catalogWarehouses: 'catalog-warehouses',
+  catalogSuppliers: 'catalog-suppliers',
+  catalogCustomers: 'catalog-customers',
   inboundList: 'inbound-list',
   inboundCreate: 'inbound-create',
   inboundDetail: 'inbound-detail',
@@ -66,6 +69,33 @@ export const appRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/catalog/LocationListView.vue'),
         meta: {
           title: '库位',
+          permission: 'catalog:read',
+        },
+      },
+      {
+        path: 'catalog/warehouses',
+        name: ROUTE_NAMES.catalogWarehouses,
+        component: () => import('@/views/catalog/WarehouseListView.vue'),
+        meta: {
+          title: '仓库',
+          permission: 'catalog:read',
+        },
+      },
+      {
+        path: 'catalog/suppliers',
+        name: ROUTE_NAMES.catalogSuppliers,
+        component: () => import('@/views/catalog/SupplierListView.vue'),
+        meta: {
+          title: '供应商',
+          permission: 'catalog:read',
+        },
+      },
+      {
+        path: 'catalog/customers',
+        name: ROUTE_NAMES.catalogCustomers,
+        component: () => import('@/views/catalog/CustomerListView.vue'),
+        meta: {
+          title: '客户',
           permission: 'catalog:read',
         },
       },
