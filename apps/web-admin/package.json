@@ -10,6 +10,8 @@
     "typecheck": "vue-tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "generate:openapi-snapshot": "cd ../../services/wms-api && uv run python -c \"import json; from app.main import create_app; open('../../apps/web-admin/openapi.snapshot.json','w',encoding='utf-8').write(json.dumps(create_app().openapi(), ensure_ascii=False, indent=2))\"",
     "generate:api": "openapi-typescript openapi.snapshot.json -o src/types/openapi.d.ts"
   },
@@ -27,6 +29,7 @@
     "@vue/test-utils": "^2.4.11",
     "@vue/tsconfig": "^0.9.1",
     "happy-dom": "^20.11.6",
+    "@playwright/test": "^1.55.0",
     "openapi-typescript": "^7.13.0",
     "typescript": "~6.0.2",
     "vite": "^8.2.0",

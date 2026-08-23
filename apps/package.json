@@ -9,6 +9,7 @@
     "dev:web-admin": "pnpm --filter web-admin dev",
     "build:web-admin": "pnpm --filter web-admin build",
     "test:web-admin": "pnpm --filter web-admin test",
-    "typecheck:web-admin": "pnpm --filter web-admin typecheck"
+    "typecheck:web-admin": "pnpm --filter web-admin typecheck",
+    "test:e2e:web-admin": "pnpm --filter web-admin test:e2e"
   }
 }
