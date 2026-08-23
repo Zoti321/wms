@@ -13,6 +13,7 @@ import { useAppStore } from '@/stores/app'
 import type { InventoryAlert, Sku } from '@/types/api'
 import { buildSkuLabelById, labelFromMap } from '@/utils/catalogLabels'
 import { errorMessage } from '@/utils/errorMessage'
+import { formatDateTime } from '@/utils/formatDateTime'
 
 const app = useAppStore()
 
@@ -138,7 +139,7 @@ onMounted(() => {
       </el-table-column>
       <el-table-column prop="created_at" label="触发时间" min-width="170">
         <template #default="{ row }">
-          <span class="font-data">{{ row.created_at }}</span>
+          <span class="font-data">{{ formatDateTime(row.created_at) }}</span>
         </template>
       </el-table-column>
     </el-table>

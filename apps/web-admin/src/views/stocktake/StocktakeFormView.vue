@@ -14,6 +14,7 @@ const app = useAppStore()
 const router = useRouter()
 
 const saving = ref(false)
+const zonesLoading = ref(false)
 const zoneOptions = ref<string[]>([])
 
 const form = reactive({
@@ -34,6 +35,7 @@ async function loadZoneOptions(): Promise<void> {
     return
   }
 
+  zonesLoading.value = true
   try {
     const page = await listLocations({
       warehouse_id: app.warehouseId,
@@ -51,6 +53,8 @@ async function loadZoneOptions(): Promise<void> {
     zoneOptions.value = [...zones].sort()
   } catch (error) {
     ElMessage.error(errorMessage(error, '加载库区选项失败'))
+  } finally {
+    zonesLoading.value = false
   }
 }
 
@@ -112,7 +116,7 @@ onMounted(() => {
       style="margin-bottom: 12px"
     />
 
-    <el-form :model="form" label-width="96px" style="max-width: 560px">
+    <el-form v-loading="zonesLoading" :model="form" label-width="96px" style="max-width: 560px">
       <el-form-item label="盘点范围">
         <el-select
           v-model="form.zone"

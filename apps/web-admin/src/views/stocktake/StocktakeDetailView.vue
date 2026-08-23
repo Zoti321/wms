@@ -27,6 +27,7 @@ import {
   labelFromMap,
 } from '@/utils/catalogLabels'
 import { errorMessage } from '@/utils/errorMessage'
+import { formatDateTime } from '@/utils/formatDateTime'
 import { fetchActiveDictOptions, type DictOption } from '@/utils/dictOptions'
 import { parseCancelReasonFromRemark } from '@/utils/orderRemark'
 
@@ -343,11 +344,14 @@ onMounted(() => {
             {{ STOCKTAKE_STATUS_LABEL[order.status] }}
           </el-tag>
         </el-descriptions-item>
+        <el-descriptions-item label="仓库">
+          {{ app.warehouseLabel(order.warehouse_id) }}
+        </el-descriptions-item>
         <el-descriptions-item label="库区">
           {{ order.zone ?? '全仓' }}
         </el-descriptions-item>
         <el-descriptions-item label="创建时间">
-          <span class="font-data">{{ order.created_at }}</span>
+          <span class="font-data">{{ formatDateTime(order.created_at) }}</span>
         </el-descriptions-item>
         <el-descriptions-item
           v-if="order.status === 'cancelled' && remarkParts.cancelReason"

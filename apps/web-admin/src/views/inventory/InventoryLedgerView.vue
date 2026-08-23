@@ -17,6 +17,7 @@ import {
   skuOptionLabel,
 } from '@/utils/catalogLabels'
 import { errorMessage } from '@/utils/errorMessage'
+import { formatDateTime } from '@/utils/formatDateTime'
 import { resolveLedgerRefRoute } from '@/utils/inventoryLedger'
 
 const app = useAppStore()
@@ -33,12 +34,14 @@ const locationOptions = ref<Location[]>([])
 const filters = reactive({
   sku_id: undefined as number | undefined,
   ref_line_id: undefined as number | undefined,
+  ref_id: undefined as number | undefined,
   ref_type: undefined as string | undefined,
   page: 1,
   page_size: 20,
 })
 
 const refLineIdInput = ref('')
+const refIdInput = ref('')
 
 const skuLabelById = computed(() => buildSkuLabelById(skuOptions.value))
 const locationCodeById = computed(() => buildLocationCodeById(locationOptions.value))
@@ -47,6 +50,7 @@ const hasActiveFilters = computed(
   () =>
     filters.sku_id != null ||
     filters.ref_line_id != null ||
+    filters.ref_id != null ||
     filters.ref_type != null,
 )
 
@@ -114,6 +118,7 @@ async function loadList(): Promise<void> {
       warehouse_id: app.warehouseId,
       sku_id: filters.sku_id,
       ref_line_id: filters.ref_line_id,
+      ref_id: filters.ref_id,
       ref_type: filters.ref_type,
       page: filters.page,
       page_size: filters.page_size,
@@ -129,8 +134,13 @@ async function loadList(): Promise<void> {
 
 function onSearch(): void {
   filters.ref_line_id = parseOptionalId(refLineIdInput.value)
+  filters.ref_id = parseOptionalId(refIdInput.value)
   if (refLineIdInput.value.trim() && filters.ref_line_id == null) {
-    ElMessage.warning('业务行 ID 须为数字')
+    ElMessage.warning('单据行 ID 须为数字')
+    return
+  }
+  if (refIdInput.value.trim() && filters.ref_id == null) {
+    ElMessage.warning('关联单据 ID 须为数字')
     return
   }
   filters.page = 1
@@ -139,8 +149,10 @@ function onSearch(): void {
 
 function onReset(): void {
   refLineIdInput.value = ''
+  refIdInput.value = ''
   filters.sku_id = undefined
   filters.ref_line_id = undefined
+  filters.ref_id = undefined
   filters.ref_type = undefined
   filters.page = 1
   void loadList()
@@ -215,12 +227,20 @@ onMounted(() => {
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="业务行 ID">
+      <el-form-item label="单据行 ID">
         <el-input
           v-model="refLineIdInput"
           clearable
-          placeholder="ref_line_id"
+          placeholder="单据行 ID"
           style="width: 140px"
+        />
+      </el-form-item>
+      <el-form-item label="关联单据 ID">
+        <el-input
+          v-model="refIdInput"
+          clearable
+          placeholder="入库/出库/盘点单 ID"
+          style="width: 160px"
         />
       </el-form-item>
       <el-form-item label="来源类型">
@@ -252,7 +272,7 @@ onMounted(() => {
       </el-table-column>
       <el-table-column prop="created_at" label="时间" min-width="170">
         <template #default="{ row }">
-          <span class="font-data">{{ row.created_at }}</span>
+          <span class="font-data">{{ formatDateTime(row.created_at) }}</span>
         </template>
       </el-table-column>
       <el-table-column label="SKU" min-width="200">
@@ -294,7 +314,7 @@ onMounted(() => {
           <span v-else class="font-data">{{ row.ref_no || '—' }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="ref_line_id" label="业务行" width="90">
+      <el-table-column prop="ref_line_id" label="单据行" width="90">
         <template #default="{ row }">
           <span class="font-data">{{ row.ref_line_id ?? '—' }}</span>
         </template>

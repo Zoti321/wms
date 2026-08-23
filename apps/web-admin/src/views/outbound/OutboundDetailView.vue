@@ -32,6 +32,7 @@ import {
   labelFromMap,
 } from '@/utils/catalogLabels'
 import { errorMessage } from '@/utils/errorMessage'
+import { formatDateTime } from '@/utils/formatDateTime'
 import {
   dictLabelFromMap,
   fetchActiveDictOptions,
@@ -465,14 +466,14 @@ onMounted(() => {
             {{ OUTBOUND_STATUS_LABEL[order.status] }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="仓库 ID">
-          <span class="font-data">{{ order.warehouse_id }}</span>
+        <el-descriptions-item label="仓库">
+          {{ app.warehouseLabel(order.warehouse_id) }}
         </el-descriptions-item>
         <el-descriptions-item label="客户">
           {{ customerLabel(order.customer_id) }}
         </el-descriptions-item>
         <el-descriptions-item label="创建时间">
-          <span class="font-data">{{ order.created_at }}</span>
+          <span class="font-data">{{ formatDateTime(order.created_at) }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="创建人">
           {{ order.created_by }}

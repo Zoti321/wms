@@ -6,9 +6,17 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createSku, deactivateSku, listSkus, updateSku } from '@/api/skus'
 import { ACTIVE_STATUS_LABEL } from '@/constants/labels'
 import type { Sku, SkuCreate } from '@/types/api'
+import { loadDictOptionsWithFallback, type DictOption } from '@/utils/dictOptions'
 import { errorMessage } from '@/utils/errorMessage'
 
+const UNIT_FALLBACK: Record<string, string> = {
+  pcs: '个',
+  box: '箱',
+  kg: '千克',
+}
+
 const loading = ref(false)
+const unitOptions = ref<DictOption[]>([])
 const items = ref<Sku[]>([])
 const total = ref(0)
 
@@ -36,7 +44,7 @@ const form = reactive({
 const formRules: FormRules = {
   sku_code: [{ required: true, message: '请输入 SKU 编码', trigger: 'blur' }],
   name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
-  unit: [{ required: true, message: '请输入单位', trigger: 'blur' }],
+  unit: [{ required: true, message: '请选择单位', trigger: 'change' }],
   safety_stock: [{ required: true, message: '请输入安全库存', trigger: 'blur' }],
 }
 
@@ -159,6 +167,9 @@ async function onDeactivate(row: Sku): Promise<void> {
 
 onMounted(() => {
   void loadList()
+  void loadDictOptionsWithFallback('unit', UNIT_FALLBACK).then((options) => {
+    unitOptions.value = options
+  })
 })
 </script>
 
@@ -276,7 +287,21 @@ onMounted(() => {
           <el-input v-model="form.name" />
         </el-form-item>
         <el-form-item label="单位" prop="unit">
-          <el-input v-model="form.unit" />
+          <el-select
+            v-model="form.unit"
+            filterable
+            allow-create
+            default-first-option
+            placeholder="选择或输入单位"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="option in unitOptions"
+              :key="option.code"
+              :value="option.code"
+              :label="option.name"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="规格" prop="spec">
           <el-input v-model="form.spec" />

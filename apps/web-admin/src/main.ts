@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import ElementPlus from 'element-plus'
+import { ElMessage } from 'element-plus'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import { createPinia } from 'pinia'
 
@@ -25,6 +26,7 @@ registerUnauthorizedHandler(() => {
   useAuthStore(pinia).logout()
   useAppStore(pinia).clearWarehouse()
   if (router.currentRoute.value.name !== ROUTE_NAMES.login) {
+    ElMessage.warning('登录已过期，请重新登录')
     void router.push({ name: ROUTE_NAMES.login })
   }
 })

@@ -27,6 +27,7 @@ export const ROUTE_NAMES = {
   platformOperationLogs: 'platform-operation-logs',
   platformDailyReport: 'platform-daily-report',
   forbidden: 'forbidden',
+  notFound: 'not-found',
 } as const
 
 export const appRoutes: RouteRecordRaw[] = [
@@ -274,6 +275,10 @@ export const appRoutes: RouteRecordRaw[] = [
   },
   {
     path: '/:pathMatch(.*)*',
-    redirect: { name: ROUTE_NAMES.dashboard },
+    name: ROUTE_NAMES.notFound,
+    component: () => import('@/views/NotFoundView.vue'),
+    meta: {
+      title: '页面不存在',
+    },
   },
 ]

@@ -12,6 +12,7 @@ import { ROUTE_NAMES } from '@/router/routes'
 import { useAppStore } from '@/stores/app'
 import type { StocktakeOrderListItem, StocktakeStatus } from '@/types/api'
 import { errorMessage } from '@/utils/errorMessage'
+import { formatDateTime } from '@/utils/formatDateTime'
 
 const app = useAppStore()
 const route = useRoute()
@@ -151,7 +152,7 @@ onMounted(() => {
       </el-table-column>
       <el-table-column prop="created_at" label="创建时间" min-width="170">
         <template #default="{ row }">
-          <span class="font-data">{{ row.created_at }}</span>
+          <span class="font-data">{{ formatDateTime(row.created_at) }}</span>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="90" fixed="right">

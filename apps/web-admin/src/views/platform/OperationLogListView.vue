@@ -3,15 +3,20 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import { listOperationLogs } from '@/api/operationLogs'
+import { listUsers } from '@/api/users'
+import { MAX_LIST_PAGE_SIZE } from '@/constants/api'
 import { OPERATION_ACTION_LABEL } from '@/constants/labels'
-import type { OperationLog } from '@/types/api'
+import type { OperationLog, PlatformUser } from '@/types/api'
 import { errorMessage } from '@/utils/errorMessage'
+import { formatDateTime, formatDateTimeForQuery } from '@/utils/formatDateTime'
 
 const ACTION_OPTIONS = Object.keys(OPERATION_ACTION_LABEL)
 
 const loading = ref(false)
+const optionsLoading = ref(false)
 const items = ref<OperationLog[]>([])
 const total = ref(0)
+const userOptions = ref<PlatformUser[]>([])
 
 const filters = reactive({
   operator_id: undefined as number | undefined,
@@ -21,9 +26,16 @@ const filters = reactive({
   page_size: 20,
 })
 
-function formatDateTime(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+async function loadUserOptions(): Promise<void> {
+  optionsLoading.value = true
+  try {
+    const page = await listUsers({ page: 1, page_size: MAX_LIST_PAGE_SIZE })
+    userOptions.value = page.items
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '加载用户选项失败'))
+  } finally {
+    optionsLoading.value = false
+  }
 }
 
 async function loadList(): Promise<void> {
@@ -32,8 +44,12 @@ async function loadList(): Promise<void> {
     const page = await listOperationLogs({
       operator_id: filters.operator_id,
       action: filters.action || undefined,
-      created_from: filters.dateRange?.[0] ? formatDateTime(filters.dateRange[0]) : undefined,
-      created_to: filters.dateRange?.[1] ? formatDateTime(filters.dateRange[1]) : undefined,
+      created_from: filters.dateRange?.[0]
+        ? formatDateTimeForQuery(filters.dateRange[0])
+        : undefined,
+      created_to: filters.dateRange?.[1]
+        ? formatDateTimeForQuery(filters.dateRange[1])
+        : undefined,
       page: filters.page,
       page_size: filters.page_size,
     })
@@ -60,6 +76,7 @@ function onReset(): void {
 }
 
 onMounted(() => {
+  void loadUserOptions()
   void loadList()
 })
 </script>
@@ -79,14 +96,22 @@ onMounted(() => {
     />
 
     <el-form class="page-filters" :inline="true" @submit.prevent="onSearch">
-      <el-form-item label="操作人 ID">
-        <el-input-number
+      <el-form-item label="操作人">
+        <el-select
           v-model="filters.operator_id"
-          :min="1"
-          controls-position="right"
+          clearable
+          filterable
           placeholder="全部"
-          style="width: 140px"
-        />
+          :loading="optionsLoading"
+          style="width: 160px"
+        >
+          <el-option
+            v-for="user in userOptions"
+            :key="user.id"
+            :value="user.id"
+            :label="user.username"
+          />
+        </el-select>
       </el-form-item>
       <el-form-item label="动作">
         <el-select v-model="filters.action" clearable placeholder="全部" style="width: 160px">
@@ -122,7 +147,7 @@ onMounted(() => {
       </el-table-column>
       <el-table-column prop="created_at" label="时间" min-width="170">
         <template #default="{ row }">
-          <span class="font-data">{{ row.created_at }}</span>
+          <span class="font-data">{{ formatDateTime(row.created_at) }}</span>
         </template>
       </el-table-column>
       <el-table-column prop="operator_name" label="操作人" width="120" />

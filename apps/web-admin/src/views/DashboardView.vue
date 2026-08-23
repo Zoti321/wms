@@ -3,6 +3,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { listInventoryAlerts } from '@/api/inventories'
+import { listInboundOrders } from '@/api/inboundOrders'
+import { listOutboundOrders } from '@/api/outboundOrders'
+import { listStocktakes } from '@/api/stocktakes'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -11,7 +14,18 @@ const auth = useAuthStore()
 const app = useAppStore()
 const router = useRouter()
 
+const pendingInboundCount = ref<number | null>(null)
+const pendingOutboundCount = ref<number | null>(null)
+const countingStocktakeCount = ref<number | null>(null)
 const openAlertCount = ref<number | null>(null)
+
+const hasTodoItems = computed(
+  () =>
+    (pendingInboundCount.value ?? 0) > 0 ||
+    (pendingOutboundCount.value ?? 0) > 0 ||
+    (countingStocktakeCount.value ?? 0) > 0 ||
+    (openAlertCount.value ?? 0) > 0,
+)
 
 const shortcuts = computed(() => {
   const items: { title: string; desc: string; route: string; permission?: string }[] = [
@@ -96,32 +110,86 @@ function go(name: string): void {
   void router.push({ name })
 }
 
-async function loadOpenAlertCount(): Promise<void> {
-  if (!auth.hasPermission('inventory:read') || app.warehouseId == null) {
+async function loadTodoCounts(): Promise<void> {
+  if (app.warehouseId == null) {
+    pendingInboundCount.value = null
+    pendingOutboundCount.value = null
+    countingStocktakeCount.value = null
     openAlertCount.value = null
     return
   }
-  try {
-    const page = await listInventoryAlerts({
-      warehouse_id: app.warehouseId,
-      page: 1,
-      page_size: 1,
-    })
-    openAlertCount.value = page.total
-  } catch {
+
+  const warehouseId = app.warehouseId
+  const tasks: Promise<void>[] = []
+
+  if (auth.hasPermission('inbound:read')) {
+    tasks.push(
+      listInboundOrders({ warehouse_id: warehouseId, status: 'pending', page: 1, page_size: 1 })
+        .then((page) => {
+          pendingInboundCount.value = page.total
+        })
+        .catch(() => {
+          pendingInboundCount.value = null
+        }),
+    )
+  } else {
+    pendingInboundCount.value = null
+  }
+
+  if (auth.hasPermission('outbound:read')) {
+    tasks.push(
+      listOutboundOrders({ warehouse_id: warehouseId, status: 'pending', page: 1, page_size: 1 })
+        .then((page) => {
+          pendingOutboundCount.value = page.total
+        })
+        .catch(() => {
+          pendingOutboundCount.value = null
+        }),
+    )
+  } else {
+    pendingOutboundCount.value = null
+  }
+
+  if (auth.hasPermission('stocktake:read')) {
+    tasks.push(
+      listStocktakes({ warehouse_id: warehouseId, status: 'counting', page: 1, page_size: 1 })
+        .then((page) => {
+          countingStocktakeCount.value = page.total
+        })
+        .catch(() => {
+          countingStocktakeCount.value = null
+        }),
+    )
+  } else {
+    countingStocktakeCount.value = null
+  }
+
+  if (auth.hasPermission('inventory:read')) {
+    tasks.push(
+      listInventoryAlerts({ warehouse_id: warehouseId, page: 1, page_size: 1 })
+        .then((page) => {
+          openAlertCount.value = page.total
+        })
+        .catch(() => {
+          openAlertCount.value = null
+        }),
+    )
+  } else {
     openAlertCount.value = null
   }
+
+  await Promise.all(tasks)
 }
 
 watch(
   () => app.warehouseId,
   () => {
-    void loadOpenAlertCount()
+    void loadTodoCounts()
   },
 )
 
 onMounted(() => {
-  void loadOpenAlertCount()
+  void loadTodoCounts()
 })
 </script>
 
@@ -140,47 +208,41 @@ onMounted(() => {
         当前仓库：<strong>{{ app.warehouseName }}</strong>
       </template>
       <template v-else-if="app.warehouseReady">
-        <el-text type="warning">尚未绑定仓库（需系统中仅有一个启用仓库）。</el-text>
+        <el-text type="warning">
+          尚未绑定仓库（请先在「仓库」主数据中启用仓库，或在顶栏选择当前仓库）。
+        </el-text>
       </template>
       <template v-else>正在确认仓库上下文…</template>
     </p>
 
-    <div
-      v-if="
-        auth.hasPermission('inbound:read') ||
-        auth.hasPermission('outbound:read') ||
-        auth.hasPermission('stocktake:read') ||
-        (auth.hasPermission('inventory:read') && openAlertCount != null && openAlertCount > 0)
-      "
-      class="todo-row"
-    >
+    <div v-if="hasTodoItems" class="todo-row">
       <span>待办</span>
       <el-button
-        v-if="auth.hasPermission('inbound:read')"
+        v-if="auth.hasPermission('inbound:read') && (pendingInboundCount ?? 0) > 0"
         link
         type="primary"
         @click="goPendingInbound"
       >
-        待审核入库单
+        待审核入库单 ({{ pendingInboundCount }})
       </el-button>
       <el-button
-        v-if="auth.hasPermission('outbound:read')"
+        v-if="auth.hasPermission('outbound:read') && (pendingOutboundCount ?? 0) > 0"
         link
         type="primary"
         @click="goPendingOutbound"
       >
-        待审核出库单
+        待审核出库单 ({{ pendingOutboundCount }})
       </el-button>
       <el-button
-        v-if="auth.hasPermission('stocktake:read')"
+        v-if="auth.hasPermission('stocktake:read') && (countingStocktakeCount ?? 0) > 0"
         link
         type="primary"
         @click="goCountingStocktakes"
       >
-        进行中盘点
+        进行中盘点 ({{ countingStocktakeCount }})
       </el-button>
       <el-button
-        v-if="auth.hasPermission('inventory:read') && openAlertCount != null && openAlertCount > 0"
+        v-if="auth.hasPermission('inventory:read') && (openAlertCount ?? 0) > 0"
         link
         type="danger"
         @click="goInventoryAlerts"

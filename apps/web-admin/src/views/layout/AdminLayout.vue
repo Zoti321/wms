@@ -24,6 +24,17 @@ const app = useAppStore()
 const router = useRouter()
 const route = useRoute()
 
+const showWarehouseSelector = computed(() => app.warehouseOptions.length > 1)
+
+const selectedWarehouseId = computed({
+  get: () => app.warehouseId ?? undefined,
+  set: (value: number | undefined) => {
+    if (value != null) {
+      app.selectWarehouse(value)
+    }
+  },
+})
+
 const iconMap: Record<string, typeof HomeFilled> = {
   '/dashboard': HomeFilled,
   主数据: OfficeBuilding,
@@ -112,7 +123,26 @@ onMounted(() => {
       <el-header class="admin-header" height="var(--header-height)">
         <div class="header-left">
           <span class="page-title">{{ route.meta.title ?? '管理后台' }}</span>
-          <el-tag v-if="app.warehouseName" type="info" effect="plain" size="small">
+          <el-select
+            v-if="showWarehouseSelector"
+            v-model="selectedWarehouseId"
+            size="small"
+            placeholder="选择仓库"
+            style="width: 200px"
+          >
+            <el-option
+              v-for="warehouse in app.warehouseOptions"
+              :key="warehouse.id"
+              :value="warehouse.id"
+              :label="warehouse.name"
+            />
+          </el-select>
+          <el-tag
+            v-else-if="app.warehouseName"
+            type="info"
+            effect="plain"
+            size="small"
+          >
             当前仓库：{{ app.warehouseName }}
           </el-tag>
           <el-tag v-else-if="app.warehouseReady" type="warning" effect="plain" size="small">
