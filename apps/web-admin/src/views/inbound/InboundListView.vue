@@ -15,6 +15,7 @@ import { ROUTE_NAMES } from '@/router/routes'
 import { useAppStore } from '@/stores/app'
 import type { InboundOrderListItem, InboundOrderType, InboundStatus, Supplier } from '@/types/api'
 import { buildSupplierLabelById, labelFromMap } from '@/utils/catalogLabels'
+import { dictLabelFromMap, loadDictLabelMap } from '@/utils/dictOptions'
 import { errorMessage } from '@/utils/errorMessage'
 
 const app = useAppStore()
@@ -25,6 +26,8 @@ const loading = ref(false)
 const items = ref<InboundOrderListItem[]>([])
 const total = ref(0)
 const supplierOptions = ref<Supplier[]>([])
+const orderTypeLabelMap = ref(new Map<string, string>())
+const orderTypeFilterOptions = ref<{ code: string; name: string }[]>([])
 
 const supplierLabelById = computed(() => buildSupplierLabelById(supplierOptions.value))
 
@@ -117,7 +120,17 @@ function statusTagType(status: InboundStatus) {
 }
 
 function orderTypeLabel(orderType: string): string {
-  return INBOUND_ORDER_TYPE_LABEL[orderType] ?? orderType
+  return dictLabelFromMap(orderTypeLabelMap.value, orderType, INBOUND_ORDER_TYPE_LABEL)
+}
+
+async function loadOrderTypeLabels(): Promise<void> {
+  orderTypeLabelMap.value = await loadDictLabelMap(
+    'inbound_order_type',
+    INBOUND_ORDER_TYPE_LABEL,
+  )
+  orderTypeFilterOptions.value = Array.from(orderTypeLabelMap.value.entries()).map(
+    ([code, name]) => ({ code, name }),
+  )
 }
 
 function supplierLabel(supplierId: number | null): string {
@@ -160,6 +173,7 @@ watch(
 
 onMounted(() => {
   void loadSuppliers()
+  void loadOrderTypeLabels()
   void loadList()
 })
 </script>
@@ -190,10 +204,10 @@ onMounted(() => {
           style="width: 140px"
         >
           <el-option
-            v-for="(label, value) in INBOUND_ORDER_TYPE_LABEL"
-            :key="value"
-            :value="value"
-            :label="label"
+            v-for="option in orderTypeFilterOptions"
+            :key="option.code"
+            :value="option.code"
+            :label="option.name"
           />
         </el-select>
       </el-form-item>

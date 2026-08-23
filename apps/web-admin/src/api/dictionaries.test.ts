@@ -36,10 +36,10 @@ describe('dictionaries api', () => {
           items: [
             {
               id: 1,
-              dict_type: 'unit',
-              code: 'EA',
-              name: '个',
-              sort_order: 0,
+              dict_type: 'inbound_order_type',
+              code: 'purchase',
+              name: '采购入库',
+              sort_order: 1,
               status: 1,
             },
           ],
@@ -51,10 +51,10 @@ describe('dictionaries api', () => {
       },
     } as never)
 
-    await listDictItems({ dict_type: 'unit', page: 1, page_size: 20 })
+    await listDictItems({ dict_type: 'inbound_order_type', page: 1, page_size: 20 })
 
     expect(apiClient.get).toHaveBeenCalledWith('/dictionaries', {
-      params: { dict_type: 'unit', page: 1, page_size: 20 },
+      params: { dict_type: 'inbound_order_type', page: 1, page_size: 20 },
     })
   })
 

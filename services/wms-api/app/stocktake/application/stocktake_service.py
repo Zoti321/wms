@@ -332,7 +332,14 @@ def cancel_order(
     *,
     operator_id: int,
     idempotency_key: str,
+    cancel_reason_code: str | None = None,
 ) -> dict:
+    from app.shared.cancel_reason import (
+        append_cancel_reason_to_remark,
+        resolve_cancel_reason_name,
+    )
+
+    reason_name = resolve_cancel_reason_name(session, cancel_reason_code)
     replay = inv.load_json_idempotent(
         session, scope=CANCEL_SCOPE, idempotency_key=idempotency_key
     )
@@ -348,6 +355,8 @@ def cancel_order(
     lock_port.release_location_locks(
         session, ref_type=LOCK_REF_TYPE, ref_id=order.id
     )
+    if reason_name is not None:
+        order.remark = append_cancel_reason_to_remark(order.remark, reason_name)
     order.status = STATUS_CANCELLED
     _ = operator_id  # 操作日志归 M6
     payload = {"order": _order_to_dict(order), "replayed": False}

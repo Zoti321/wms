@@ -12,6 +12,7 @@ import {
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAppStore } from '@/stores/app'
 import type { OutboundOrderListItem, OutboundOrderType, OutboundStatus } from '@/types/api'
+import { dictLabelFromMap, loadDictLabelMap } from '@/utils/dictOptions'
 import { errorMessage } from '@/utils/errorMessage'
 
 const app = useAppStore()
@@ -21,6 +22,8 @@ const router = useRouter()
 const loading = ref(false)
 const items = ref<OutboundOrderListItem[]>([])
 const total = ref(0)
+const orderTypeLabelMap = ref(new Map<string, string>())
+const orderTypeFilterOptions = ref<{ code: string; name: string }[]>([])
 
 const statusValues = Object.keys(OUTBOUND_STATUS_LABEL) as OutboundStatus[]
 
@@ -111,7 +114,17 @@ function statusTagType(status: OutboundStatus) {
 }
 
 function orderTypeLabel(orderType: string): string {
-  return OUTBOUND_ORDER_TYPE_LABEL[orderType] ?? orderType
+  return dictLabelFromMap(orderTypeLabelMap.value, orderType, OUTBOUND_ORDER_TYPE_LABEL)
+}
+
+async function loadOrderTypeLabels(): Promise<void> {
+  orderTypeLabelMap.value = await loadDictLabelMap(
+    'outbound_order_type',
+    OUTBOUND_ORDER_TYPE_LABEL,
+  )
+  orderTypeFilterOptions.value = Array.from(orderTypeLabelMap.value.entries()).map(
+    ([code, name]) => ({ code, name }),
+  )
 }
 
 watch(
@@ -132,6 +145,7 @@ watch(
 )
 
 onMounted(() => {
+  void loadOrderTypeLabels()
   void loadList()
 })
 </script>
@@ -162,10 +176,10 @@ onMounted(() => {
           style="width: 140px"
         >
           <el-option
-            v-for="(label, value) in OUTBOUND_ORDER_TYPE_LABEL"
-            :key="value"
-            :value="value"
-            :label="label"
+            v-for="option in orderTypeFilterOptions"
+            :key="option.code"
+            :value="option.code"
+            :label="option.name"
           />
         </el-select>
       </el-form-item>

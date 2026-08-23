@@ -17,7 +17,7 @@ vi.mock('@/utils/idempotency', () => ({
 }))
 
 import { apiClient, requestData } from '@/api/client'
-import { listInboundOrders, putawayInboundOrder, updateInboundOrder } from '@/api/inboundOrders'
+import { cancelInboundOrder, listInboundOrders, putawayInboundOrder, updateInboundOrder } from '@/api/inboundOrders'
 
 describe('listInboundOrders', () => {
   beforeEach(() => {
@@ -134,5 +134,44 @@ describe('updateInboundOrder', () => {
     expect(apiClient.patch).toHaveBeenCalledWith('/inbound-orders/1', payload)
     expect(result.id).toBe(1)
     expect(result.remark).toBe('updated')
+  })
+})
+
+describe('cancelInboundOrder', () => {
+  beforeEach(() => {
+    vi.mocked(apiClient.post).mockReset()
+    vi.mocked(requestData).mockClear()
+  })
+
+  it('posts cancel with empty body by default', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({
+      data: {
+        code: 0,
+        message: 'ok',
+        data: { id: 1, status: 'cancelled' },
+        traceId: 't1',
+      },
+    } as never)
+
+    await cancelInboundOrder(1)
+
+    expect(apiClient.post).toHaveBeenCalledWith('/inbound-orders/1/cancel', {})
+  })
+
+  it('posts cancel with cancel_reason_code', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({
+      data: {
+        code: 0,
+        message: 'ok',
+        data: { id: 1, status: 'cancelled' },
+        traceId: 't1',
+      },
+    } as never)
+
+    await cancelInboundOrder(1, { cancel_reason_code: 'customer_cancel' })
+
+    expect(apiClient.post).toHaveBeenCalledWith('/inbound-orders/1/cancel', {
+      cancel_reason_code: 'customer_cancel',
+    })
   })
 })

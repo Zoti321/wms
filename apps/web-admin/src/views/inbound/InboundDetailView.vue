@@ -14,6 +14,7 @@ import {
 import { listLocations } from '@/api/locations'
 import { listSkus } from '@/api/skus'
 import { listSuppliers } from '@/api/suppliers'
+import CancelReasonDialog from '@/components/CancelReasonDialog.vue'
 import { MAX_LIST_PAGE_SIZE } from '@/constants/api'
 import {
   INBOUND_ORDER_TYPE_LABEL,
@@ -28,7 +29,14 @@ import {
   buildSupplierLabelById,
   labelFromMap,
 } from '@/utils/catalogLabels'
+import {
+  dictLabelFromMap,
+  fetchActiveDictOptions,
+  loadDictLabelMap,
+  type DictOption,
+} from '@/utils/dictOptions'
 import { errorMessage } from '@/utils/errorMessage'
+import { parseCancelReasonFromRemark } from '@/utils/orderRemark'
 
 const route = useRoute()
 const router = useRouter()
@@ -41,8 +49,26 @@ const locationOptions = ref<Location[]>([])
 const skuOptions = ref<Sku[]>([])
 const supplierOptions = ref<Supplier[]>([])
 
+const cancelDialogVisible = ref(false)
+const cancelReasonOptions = ref<DictOption[]>([])
+const cancelReasonLoading = ref(false)
+const orderTypeLabelMap = ref(new Map<string, string>())
+
 const skuLabelById = computed(() => buildSkuLabelById(skuOptions.value))
 const supplierLabelById = computed(() => buildSupplierLabelById(supplierOptions.value))
+
+const remarkParts = computed(() => parseCancelReasonFromRemark(order.value?.remark))
+
+const orderTypeLabel = computed(() => {
+  if (!order.value) {
+    return '—'
+  }
+  return dictLabelFromMap(
+    orderTypeLabelMap.value,
+    order.value.order_type,
+    INBOUND_ORDER_TYPE_LABEL,
+  )
+})
 
 const putawayVisible = ref(false)
 const putawaySaving = ref(false)
@@ -166,11 +192,35 @@ function onApprove(): void {
 }
 
 function onCancel(): void {
-  void runAction(
-    () => cancelInboundOrder(orderId.value),
-    '已取消',
-    '确认取消该入库单？',
-  )
+  cancelDialogVisible.value = true
+  if (cancelReasonOptions.value.length === 0) {
+    cancelReasonLoading.value = true
+    void fetchActiveDictOptions('cancel_reason')
+      .then((options) => {
+        cancelReasonOptions.value = options
+      })
+      .catch(() => {
+        cancelReasonOptions.value = []
+      })
+      .finally(() => {
+        cancelReasonLoading.value = false
+      })
+  }
+}
+
+async function onConfirmCancel(cancelReasonCode: string | undefined): Promise<void> {
+  actionLoading.value = true
+  try {
+    order.value = await cancelInboundOrder(
+      orderId.value,
+      cancelReasonCode ? { cancel_reason_code: cancelReasonCode } : undefined,
+    )
+    ElMessage.success('已取消')
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '取消失败'))
+  } finally {
+    actionLoading.value = false
+  }
 }
 
 function openPutaway(line: InboundOrderLine): void {
@@ -231,6 +281,9 @@ watch(
 
 onMounted(() => {
   void loadCatalogOptions()
+  void loadDictLabelMap('inbound_order_type', INBOUND_ORDER_TYPE_LABEL).then((map) => {
+    orderTypeLabelMap.value = map
+  })
   void loadOrder()
 })
 </script>
@@ -294,7 +347,7 @@ onMounted(() => {
           <span class="font-data">{{ order.order_no }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="类型">
-          {{ INBOUND_ORDER_TYPE_LABEL[order.order_type] ?? order.order_type }}
+          {{ orderTypeLabel }}
         </el-descriptions-item>
         <el-descriptions-item label="状态">
           <el-tag :type="INBOUND_STATUS_TAG_TYPE[order.status]" size="small">
@@ -313,8 +366,14 @@ onMounted(() => {
         <el-descriptions-item label="创建人">
           {{ order.created_by }}
         </el-descriptions-item>
+        <el-descriptions-item
+          v-if="order.status === 'cancelled' && remarkParts.cancelReason"
+          label="取消原因"
+        >
+          {{ remarkParts.cancelReason }}
+        </el-descriptions-item>
         <el-descriptions-item label="备注" :span="2">
-          {{ order.remark || '—' }}
+          {{ remarkParts.userRemark || '—' }}
         </el-descriptions-item>
       </el-descriptions>
 
@@ -390,6 +449,15 @@ onMounted(() => {
         <el-button type="primary" :loading="putawaySaving" @click="onPutaway">确认上架</el-button>
       </template>
     </el-dialog>
+
+    <CancelReasonDialog
+      v-model="cancelDialogVisible"
+      title="取消入库单"
+      confirm-text="确认取消"
+      :loading="cancelReasonLoading || actionLoading"
+      :options="cancelReasonOptions"
+      @confirm="onConfirmCancel"
+    />
   </div>
 </template>
 

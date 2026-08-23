@@ -11,6 +11,7 @@ import {
 } from '@/api/stocktakes'
 import { listLocations } from '@/api/locations'
 import { listSkus } from '@/api/skus'
+import CancelReasonDialog from '@/components/CancelReasonDialog.vue'
 import { MAX_LIST_PAGE_SIZE } from '@/constants/api'
 import {
   STOCKTAKE_STATUS_LABEL,
@@ -26,6 +27,8 @@ import {
   labelFromMap,
 } from '@/utils/catalogLabels'
 import { errorMessage } from '@/utils/errorMessage'
+import { fetchActiveDictOptions, type DictOption } from '@/utils/dictOptions'
+import { parseCancelReasonFromRemark } from '@/utils/orderRemark'
 
 const route = useRoute()
 const router = useRouter()
@@ -39,8 +42,14 @@ const order = ref<StocktakeOrder | null>(null)
 const skuOptions = ref<Sku[]>([])
 const locationOptions = ref<Location[]>([])
 
+const cancelDialogVisible = ref(false)
+const cancelReasonOptions = ref<DictOption[]>([])
+const cancelReasonLoading = ref(false)
+
 const skuLabelById = computed(() => buildSkuLabelById(skuOptions.value))
 const locationCodeById = computed(() => buildLocationCodeById(locationOptions.value))
+
+const remarkParts = computed(() => parseCancelReasonFromRemark(order.value?.remark))
 
 /** line_id → 编辑中的实盘数量字符串 */
 const countDrafts = reactive<Record<number, string>>({})
@@ -197,24 +206,30 @@ async function onApprove(): Promise<void> {
   }
 }
 
-async function onCancel(): Promise<void> {
-  try {
-    await ElMessageBox.confirm(
-      '确认取消该盘点单？取消后将释放盘点锁，不会调整库存余额。',
-      '确认取消',
-      {
-        type: 'warning',
-        confirmButtonText: '确认取消',
-        cancelButtonText: '返回',
-      },
-    )
-  } catch {
-    return
+function onCancel(): void {
+  cancelDialogVisible.value = true
+  if (cancelReasonOptions.value.length === 0) {
+    cancelReasonLoading.value = true
+    void fetchActiveDictOptions('cancel_reason')
+      .then((options) => {
+        cancelReasonOptions.value = options
+      })
+      .catch(() => {
+        cancelReasonOptions.value = []
+      })
+      .finally(() => {
+        cancelReasonLoading.value = false
+      })
   }
+}
 
+async function onConfirmCancel(cancelReasonCode: string | undefined): Promise<void> {
   actionLoading.value = true
   try {
-    const result = await cancelStocktake(orderId.value)
+    const result = await cancelStocktake(
+      orderId.value,
+      cancelReasonCode ? { cancel_reason_code: cancelReasonCode } : undefined,
+    )
     order.value = result.order
     syncCountDrafts(order.value.lines)
     ElMessage.success(result.replayed ? '取消已幂等重放' : '已取消，盘点锁已释放')
@@ -334,8 +349,14 @@ onMounted(() => {
         <el-descriptions-item label="创建时间">
           <span class="font-data">{{ order.created_at }}</span>
         </el-descriptions-item>
+        <el-descriptions-item
+          v-if="order.status === 'cancelled' && remarkParts.cancelReason"
+          label="取消原因"
+        >
+          {{ remarkParts.cancelReason }}
+        </el-descriptions-item>
         <el-descriptions-item label="备注" :span="2">
-          {{ order.remark ?? '—' }}
+          {{ remarkParts.userRemark ?? '—' }}
         </el-descriptions-item>
       </el-descriptions>
 
@@ -388,6 +409,15 @@ onMounted(() => {
         </el-table-column>
       </el-table>
     </template>
+
+    <CancelReasonDialog
+      v-model="cancelDialogVisible"
+      title="取消盘点单"
+      confirm-text="确认取消"
+      :loading="cancelReasonLoading || actionLoading"
+      :options="cancelReasonOptions"
+      @confirm="onConfirmCancel"
+    />
   </div>
 </template>
 

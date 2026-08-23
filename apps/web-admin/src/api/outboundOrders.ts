@@ -14,6 +14,10 @@ import type {
 } from '@/types/api'
 import { createIdempotencyKey } from '@/utils/idempotency'
 
+export interface CancelPayload {
+  cancel_reason_code?: string
+}
+
 export interface OutboundOrderListQuery {
   warehouse_id?: number
   status?: string
@@ -90,12 +94,13 @@ export async function pickOutboundOrder(
 
 export async function cancelOutboundOrder(
   orderId: number,
+  payload?: CancelPayload,
   idempotencyKey: string = createIdempotencyKey(),
 ): Promise<CancelResult> {
   return requestData(
     apiClient.post<ApiEnvelope<CancelResult>>(
       `/outbound-orders/${orderId}/cancel`,
-      undefined,
+      payload ?? {},
       { headers: { 'Idempotency-Key': idempotencyKey } },
     ),
   )

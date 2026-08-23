@@ -17,6 +17,7 @@ import { MAX_LIST_PAGE_SIZE } from '@/constants/api'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAppStore } from '@/stores/app'
 import type { InboundOrderType, Sku, Supplier } from '@/types/api'
+import { loadDictOptionsWithFallback, type DictOption } from '@/utils/dictOptions'
 import { errorMessage } from '@/utils/errorMessage'
 
 interface LineForm {
@@ -33,6 +34,7 @@ const saving = ref(false)
 const loading = ref(false)
 const skuOptions = ref<Sku[]>([])
 const supplierOptions = ref<Supplier[]>([])
+const orderTypeOptions = ref<DictOption[]>([])
 
 const orderId = computed(() => {
   const raw = route.params.id
@@ -60,12 +62,14 @@ const pageTitle = computed(() => (isEdit.value ? '编辑入库单' : '新建入�
 
 async function loadOptions(): Promise<void> {
   try {
-    const [skus, suppliers] = await Promise.all([
+    const [skus, suppliers, types] = await Promise.all([
       listSkus({ selectable: true, status: 1, page: 1, page_size: MAX_LIST_PAGE_SIZE }),
       listSuppliers({ selectable: true, status: 1, page: 1, page_size: MAX_LIST_PAGE_SIZE }),
+      loadDictOptionsWithFallback('inbound_order_type', INBOUND_ORDER_TYPE_LABEL),
     ])
     skuOptions.value = skus.items
     supplierOptions.value = suppliers.items
+    orderTypeOptions.value = types
   } catch (error) {
     ElMessage.error(errorMessage(error, '加载选项失败'))
   }
@@ -213,10 +217,10 @@ onMounted(() => {
       <el-form-item label="入库类型" prop="order_type">
         <el-select v-model="form.order_type" :disabled="isEdit" style="width: 240px">
           <el-option
-            v-for="(label, value) in INBOUND_ORDER_TYPE_LABEL"
-            :key="value"
-            :value="value"
-            :label="label"
+            v-for="option in orderTypeOptions"
+            :key="option.code"
+            :value="option.code"
+            :label="option.name"
           />
         </el-select>
       </el-form-item>

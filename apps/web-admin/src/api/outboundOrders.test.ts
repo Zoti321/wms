@@ -130,9 +130,28 @@ describe('outboundOrders idempotent actions', () => {
 
     const result = await cancelOutboundOrder(1)
 
-    expect(apiClient.post).toHaveBeenCalledWith('/outbound-orders/1/cancel', undefined, {
+    expect(apiClient.post).toHaveBeenCalledWith('/outbound-orders/1/cancel', {}, {
       headers: { 'Idempotency-Key': 'idem-key-fixed' },
     })
     expect(result.order.status).toBe('cancelled')
+  })
+
+  it('posts cancel with cancel_reason_code in body', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({
+      data: {
+        code: 0,
+        message: 'ok',
+        data: { order: { ...sampleOrder, status: 'cancelled' }, replayed: false },
+        traceId: 't1',
+      },
+    } as never)
+
+    await cancelOutboundOrder(1, { cancel_reason_code: 'customer_cancel' })
+
+    expect(apiClient.post).toHaveBeenCalledWith(
+      '/outbound-orders/1/cancel',
+      { cancel_reason_code: 'customer_cancel' },
+      { headers: { 'Idempotency-Key': 'idem-key-fixed' } },
+    )
   })
 })

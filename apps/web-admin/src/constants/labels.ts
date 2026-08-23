@@ -123,6 +123,7 @@ export const OPERATION_ACTION_LABEL: Record<string, string> = {
 
 export const DICT_TYPE_LABEL: Record<string, string> = {
   unit: '计量单位',
-  order_type: '单据类型',
+  inbound_order_type: '入库类型',
+  outbound_order_type: '出库类型',
   cancel_reason: '取消原因',
 }

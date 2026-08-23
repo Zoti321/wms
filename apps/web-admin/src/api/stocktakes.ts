@@ -10,6 +10,10 @@ import type {
 } from '@/types/api'
 import { createIdempotencyKey } from '@/utils/idempotency'
 
+export interface CancelPayload {
+  cancel_reason_code?: string
+}
+
 export interface StocktakeListQuery {
   warehouse_id?: number
   status?: string
@@ -70,12 +74,13 @@ export async function approveStocktake(
 
 export async function cancelStocktake(
   orderId: number,
+  payload?: CancelPayload,
   idempotencyKey: string = createIdempotencyKey(),
 ): Promise<StocktakeOrderResult> {
   return requestData(
     apiClient.post<ApiEnvelope<StocktakeOrderResult>>(
       `/stocktakes/${orderId}/cancel`,
-      undefined,
+      payload ?? {},
       { headers: { 'Idempotency-Key': idempotencyKey } },
     ),
   )

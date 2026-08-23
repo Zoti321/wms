@@ -16,7 +16,9 @@ from app.platform.domain.permissions import (
     PERM_INBOUND_WRITE,
 )
 from app.shared.db import get_db
+from app.shared.cancel_reason import CancelReasonValidationError
 from app.shared.http_errors import DomainErrorRule, map_domain_error, require_idempotency_key
+from app.shared.schemas import CancelRequest
 from app.shared.pagination import pagination_query
 from app.shared.response import ok
 
@@ -25,6 +27,12 @@ router = APIRouter(prefix="/inbound-orders", tags=["inbound"])
 _INBOUND_RULES = (
     DomainErrorRule(svc.InboundNotFoundError, 40400, status.HTTP_404_NOT_FOUND, "资源不存在"),
     DomainErrorRule(svc.InboundConflictError, 40900, status.HTTP_409_CONFLICT),
+    DomainErrorRule(
+        CancelReasonValidationError,
+        42200,
+        status.HTTP_422_UNPROCESSABLE_ENTITY,
+        "无效的取消原因",
+    ),
     DomainErrorRule(svc.InboundError, 40000, status.HTTP_400_BAD_REQUEST),
 )
 
@@ -152,12 +160,18 @@ def approve_inbound_order(
 @router.post("/{order_id}/cancel")
 def cancel_inbound_order(
     order_id: int,
+    body: CancelRequest | None = None,
     session: Session = Depends(get_db),
     _: CurrentUser = Depends(require_permissions(PERM_INBOUND_WRITE)),
 ) -> dict:
     try:
-        return ok(svc.cancel_order(session, order_id))
-    except svc.InboundError as exc:
+        cancel_reason_code = body.cancel_reason_code if body else None
+        return ok(
+            svc.cancel_order(
+                session, order_id, cancel_reason_code=cancel_reason_code
+            )
+        )
+    except (svc.InboundError, CancelReasonValidationError) as exc:
         map_domain_error(exc, _INBOUND_RULES)
 
 

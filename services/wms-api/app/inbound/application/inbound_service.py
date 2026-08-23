@@ -232,12 +232,25 @@ def approve_order(session: Session, order_id: int) -> dict:
     return _order_to_dict(_get_order(session, order.id))
 
 
-def cancel_order(session: Session, order_id: int) -> dict:
+def cancel_order(
+    session: Session,
+    order_id: int,
+    *,
+    cancel_reason_code: str | None = None,
+) -> dict:
+    from app.shared.cancel_reason import (
+        append_cancel_reason_to_remark,
+        resolve_cancel_reason_name,
+    )
+
+    reason_name = resolve_cancel_reason_name(session, cancel_reason_code)
     order = _get_order(session, order_id)
     if order.status in TERMINAL_STATUSES:
         raise InboundConflictError("已完成或已取消不可再取消")
     if any(line.putaway_qty > 0 for line in order.lines):
         raise InboundConflictError("已上架数量不可靠取消抹账")
+    if reason_name is not None:
+        order.remark = append_cancel_reason_to_remark(order.remark, reason_name)
     order.status = STATUS_CANCELLED
     session.commit()
     return _order_to_dict(_get_order(session, order.id))

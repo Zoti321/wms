@@ -13,7 +13,12 @@ import { ACTIVE_STATUS_LABEL, DICT_TYPE_LABEL } from '@/constants/labels'
 import type { CreateDictItemRequest, DictItem } from '@/types/api'
 import { errorMessage } from '@/utils/errorMessage'
 
-const DICT_TYPE_OPTIONS = ['unit', 'order_type', 'cancel_reason'] as const
+const DICT_TYPE_OPTIONS = [
+  'unit',
+  'inbound_order_type',
+  'outbound_order_type',
+  'cancel_reason',
+] as const
 
 const loading = ref(false)
 const items = ref<DictItem[]>([])

@@ -423,8 +423,15 @@ def cancel_order(
     *,
     operator_id: int,
     idempotency_key: str,
+    cancel_reason_code: str | None = None,
 ) -> dict:
     """取消未拣：释放预留；已实扣不可抹账。"""
+    from app.shared.cancel_reason import (
+        append_cancel_reason_to_remark,
+        resolve_cancel_reason_name,
+    )
+
+    reason_name = resolve_cancel_reason_name(session, cancel_reason_code)
     replay = inv.load_json_idempotent(
         session, scope=CANCEL_SCOPE, idempotency_key=idempotency_key
     )
@@ -467,6 +474,8 @@ def cancel_order(
     has_picked = any(line.picked_qty > 0 for line in order.lines)
     # 已有实扣 → 已完成（保留已出库）；无实扣 → 已取消。纠错走退货入库。
     order.status = STATUS_DONE if has_picked else STATUS_CANCELLED
+    if reason_name is not None:
+        order.remark = append_cancel_reason_to_remark(order.remark, reason_name)
     note = None
     if has_picked:
         note = "已实扣数量已保留，不可靠取消抹账；纠错请走退货入库"
