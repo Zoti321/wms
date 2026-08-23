@@ -93,6 +93,14 @@ export const INVENTORY_ALERT_STATUS_TAG_TYPE: Record<
   cleared: 'success',
 }
 
+export const INVENTORY_REF_TYPE_LABEL: Record<string, string> = {
+  PUTAWAY: '上架',
+  ALLOCATE: '分配',
+  PICK: '拣货',
+  RELEASE: '释放',
+  STOCKTAKE: '盘点',
+}
+
 export const ROLE_CODE_LABEL: Record<string, string> = {
   admin: '系统管理员',
   supervisor: '仓库主管',

@@ -1,30 +1,64 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import { listInventoryLedgers } from '@/api/inventories'
+import { listLocations } from '@/api/locations'
+import { listSkus } from '@/api/skus'
+import { MAX_LIST_PAGE_SIZE } from '@/constants/api'
+import { INVENTORY_REF_TYPE_LABEL } from '@/constants/labels'
 import { useAppStore } from '@/stores/app'
-import type { InventoryLedger } from '@/types/api'
+import type { InventoryLedger, Location, Sku } from '@/types/api'
+import {
+  buildLocationCodeById,
+  buildSkuLabelById,
+  labelFromMap,
+  skuOptionLabel,
+} from '@/utils/catalogLabels'
 import { errorMessage } from '@/utils/errorMessage'
+import { resolveLedgerRefRoute } from '@/utils/inventoryLedger'
 
 const app = useAppStore()
 const route = useRoute()
+const router = useRouter()
 
 const loading = ref(false)
+const optionsLoading = ref(false)
 const items = ref<InventoryLedger[]>([])
 const total = ref(0)
+const skuOptions = ref<Sku[]>([])
+const locationOptions = ref<Location[]>([])
 
 const filters = reactive({
   sku_id: undefined as number | undefined,
   ref_line_id: undefined as number | undefined,
-  ref_type: '',
+  ref_type: undefined as string | undefined,
   page: 1,
   page_size: 20,
 })
 
-const skuIdInput = ref('')
 const refLineIdInput = ref('')
+
+const skuLabelById = computed(() => buildSkuLabelById(skuOptions.value))
+const locationCodeById = computed(() => buildLocationCodeById(locationOptions.value))
+
+const hasActiveFilters = computed(
+  () =>
+    filters.sku_id != null ||
+    filters.ref_line_id != null ||
+    filters.ref_type != null,
+)
+
+const emptyText = computed(() => {
+  if (app.warehouseId == null) {
+    return '请先确认仓库上下文'
+  }
+  if (hasActiveFilters.value) {
+    return '未找到符合条件的流水记录，请调整筛选条件'
+  }
+  return '暂无数据'
+})
 
 function parseOptionalId(raw: string): number | undefined {
   const trimmed = raw.trim()
@@ -43,6 +77,31 @@ function applyQuery(): void {
   }
 }
 
+async function loadCatalogOptions(): Promise<void> {
+  optionsLoading.value = true
+  try {
+    const warehouseId = app.warehouseId
+    const [skus, locations] = await Promise.all([
+      listSkus({ selectable: true, status: 1, page: 1, page_size: MAX_LIST_PAGE_SIZE }),
+      warehouseId != null
+        ? listLocations({
+            warehouse_id: warehouseId,
+            selectable: true,
+            status: 1,
+            page: 1,
+            page_size: MAX_LIST_PAGE_SIZE,
+          })
+        : Promise.resolve({ items: [], total: 0, page: 1, page_size: MAX_LIST_PAGE_SIZE }),
+    ])
+    skuOptions.value = skus.items
+    locationOptions.value = locations.items
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '加载筛选选项失败'))
+  } finally {
+    optionsLoading.value = false
+  }
+}
+
 async function loadList(): Promise<void> {
   if (app.warehouseId == null) {
     items.value = []
@@ -55,7 +114,7 @@ async function loadList(): Promise<void> {
       warehouse_id: app.warehouseId,
       sku_id: filters.sku_id,
       ref_line_id: filters.ref_line_id,
-      ref_type: filters.ref_type || undefined,
+      ref_type: filters.ref_type,
       page: filters.page,
       page_size: filters.page_size,
     })
@@ -69,13 +128,9 @@ async function loadList(): Promise<void> {
 }
 
 function onSearch(): void {
-  filters.sku_id = parseOptionalId(skuIdInput.value)
   filters.ref_line_id = parseOptionalId(refLineIdInput.value)
-  if (
-    (skuIdInput.value.trim() && filters.sku_id == null) ||
-    (refLineIdInput.value.trim() && filters.ref_line_id == null)
-  ) {
-    ElMessage.warning('SKU / 行 ID 须为数字')
+  if (refLineIdInput.value.trim() && filters.ref_line_id == null) {
+    ElMessage.warning('业务行 ID 须为数字')
     return
   }
   filters.page = 1
@@ -83,19 +138,39 @@ function onSearch(): void {
 }
 
 function onReset(): void {
-  skuIdInput.value = ''
   refLineIdInput.value = ''
   filters.sku_id = undefined
   filters.ref_line_id = undefined
-  filters.ref_type = ''
+  filters.ref_type = undefined
   filters.page = 1
   void loadList()
+}
+
+function skuLabel(skuId: number): string {
+  return labelFromMap(skuLabelById.value, skuId)
+}
+
+function locationLabel(locationId: number): string {
+  return labelFromMap(locationCodeById.value, locationId)
+}
+
+function refTypeLabel(refType: string): string {
+  return INVENTORY_REF_TYPE_LABEL[refType] ?? refType
+}
+
+function goRefDetail(row: InventoryLedger): void {
+  const target = resolveLedgerRefRoute(row)
+  if (target == null) {
+    return
+  }
+  void router.push(target)
 }
 
 watch(
   () => app.warehouseId,
   () => {
     filters.page = 1
+    void loadCatalogOptions()
     void loadList()
   },
 )
@@ -111,6 +186,7 @@ watch(
 
 onMounted(() => {
   applyQuery()
+  void loadCatalogOptions()
   void loadList()
 })
 </script>
@@ -122,8 +198,22 @@ onMounted(() => {
     </div>
 
     <el-form class="page-filters" :inline="true" @submit.prevent="onSearch">
-      <el-form-item label="SKU ID">
-        <el-input v-model="skuIdInput" clearable placeholder="可选" style="width: 140px" />
+      <el-form-item label="SKU">
+        <el-select
+          v-model="filters.sku_id"
+          clearable
+          filterable
+          placeholder="全部"
+          :loading="optionsLoading"
+          style="width: 280px"
+        >
+          <el-option
+            v-for="sku in skuOptions"
+            :key="sku.id"
+            :value="sku.id"
+            :label="skuOptionLabel(sku)"
+          />
+        </el-select>
       </el-form-item>
       <el-form-item label="业务行 ID">
         <el-input
@@ -134,7 +224,19 @@ onMounted(() => {
         />
       </el-form-item>
       <el-form-item label="来源类型">
-        <el-input v-model="filters.ref_type" clearable placeholder="如 inbound" style="width: 140px" />
+        <el-select
+          v-model="filters.ref_type"
+          clearable
+          placeholder="全部"
+          style="width: 140px"
+        >
+          <el-option
+            v-for="(label, value) in INVENTORY_REF_TYPE_LABEL"
+            :key="value"
+            :value="value"
+            :label="label"
+          />
+        </el-select>
       </el-form-item>
       <el-form-item>
         <el-button type="primary" @click="onSearch">查询</el-button>
@@ -142,7 +244,7 @@ onMounted(() => {
       </el-form-item>
     </el-form>
 
-    <el-table v-loading="loading" :data="items" size="small" empty-text="暂无数据">
+    <el-table v-loading="loading" :data="items" size="small" :empty-text="emptyText">
       <el-table-column prop="id" label="ID" width="80">
         <template #default="{ row }">
           <span class="font-data">{{ row.id }}</span>
@@ -153,14 +255,14 @@ onMounted(() => {
           <span class="font-data">{{ row.created_at }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="sku_id" label="SKU" width="90">
+      <el-table-column label="SKU" min-width="200">
         <template #default="{ row }">
-          <span class="font-data">{{ row.sku_id }}</span>
+          {{ skuLabel(row.sku_id) }}
         </template>
       </el-table-column>
-      <el-table-column prop="location_id" label="库位" width="90">
+      <el-table-column label="库位" width="120">
         <template #default="{ row }">
-          <span class="font-data">{{ row.location_id }}</span>
+          <span class="font-data">{{ locationLabel(row.location_id) }}</span>
         </template>
       </el-table-column>
       <el-table-column prop="change_qty" label="变动" width="110" align="right">
@@ -173,10 +275,23 @@ onMounted(() => {
           <span class="qty-cell">{{ row.bal_qty }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="ref_type" label="来源" width="100" />
+      <el-table-column prop="ref_type" label="来源" width="100">
+        <template #default="{ row }">
+          {{ refTypeLabel(row.ref_type) }}
+        </template>
+      </el-table-column>
       <el-table-column prop="ref_no" label="单号" min-width="140">
         <template #default="{ row }">
-          <span class="font-data">{{ row.ref_no || '—' }}</span>
+          <el-button
+            v-if="resolveLedgerRefRoute(row)"
+            link
+            type="primary"
+            class="font-data"
+            @click="goRefDetail(row)"
+          >
+            {{ row.ref_no }}
+          </el-button>
+          <span v-else class="font-data">{{ row.ref_no || '—' }}</span>
         </template>
       </el-table-column>
       <el-table-column prop="ref_line_id" label="业务行" width="90">

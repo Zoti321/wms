@@ -1,26 +1,50 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import { listInventoryAlerts } from '@/api/inventories'
+import { listSkus } from '@/api/skus'
+import { MAX_LIST_PAGE_SIZE } from '@/constants/api'
 import {
   INVENTORY_ALERT_STATUS_LABEL,
   INVENTORY_ALERT_STATUS_TAG_TYPE,
 } from '@/constants/labels'
 import { useAppStore } from '@/stores/app'
-import type { InventoryAlert } from '@/types/api'
+import type { InventoryAlert, Sku } from '@/types/api'
+import { buildSkuLabelById, labelFromMap } from '@/utils/catalogLabels'
 import { errorMessage } from '@/utils/errorMessage'
 
 const app = useAppStore()
 
 const loading = ref(false)
+const optionsLoading = ref(false)
 const items = ref<InventoryAlert[]>([])
 const total = ref(0)
+const skuOptions = ref<Sku[]>([])
 
 const filters = reactive({
   page: 1,
   page_size: 20,
 })
+
+const skuLabelById = computed(() => buildSkuLabelById(skuOptions.value))
+
+async function loadCatalogOptions(): Promise<void> {
+  optionsLoading.value = true
+  try {
+    const skus = await listSkus({
+      selectable: true,
+      status: 1,
+      page: 1,
+      page_size: MAX_LIST_PAGE_SIZE,
+    })
+    skuOptions.value = skus.items
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '加载 SKU 选项失败'))
+  } finally {
+    optionsLoading.value = false
+  }
+}
 
 async function loadList(): Promise<void> {
   if (app.warehouseId == null) {
@@ -44,6 +68,10 @@ async function loadList(): Promise<void> {
   }
 }
 
+function skuLabel(skuId: number): string {
+  return labelFromMap(skuLabelById.value, skuId)
+}
+
 watch(
   () => app.warehouseId,
   () => {
@@ -53,6 +81,7 @@ watch(
 )
 
 onMounted(() => {
+  void loadCatalogOptions()
   void loadList()
 })
 </script>
@@ -82,9 +111,9 @@ onMounted(() => {
           <span class="font-data">{{ row.id }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="sku_id" label="SKU" width="90">
+      <el-table-column label="SKU" min-width="200">
         <template #default="{ row }">
-          <span class="font-data">{{ row.sku_id }}</span>
+          {{ skuLabel(row.sku_id) }}
         </template>
       </el-table-column>
       <el-table-column prop="qty_available" label="可用数量" min-width="120" align="right">

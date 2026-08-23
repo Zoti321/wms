@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
@@ -35,6 +35,16 @@ const filters = reactive({
   status: statusFromQuery(),
   page: 1,
   page_size: 20,
+})
+
+const emptyText = computed(() => {
+  if (app.warehouseId == null) {
+    return '请先确认仓库上下文'
+  }
+  if (filters.status != null) {
+    return '未找到符合条件的入库单，请调整筛选条件'
+  }
+  return '暂无数据'
 })
 
 async function loadList(): Promise<void> {
@@ -139,7 +149,7 @@ onMounted(() => {
       </el-form-item>
     </el-form>
 
-    <el-table v-loading="loading" :data="items" size="small" empty-text="暂无数据">
+    <el-table v-loading="loading" :data="items" size="small" :empty-text="emptyText">
       <el-table-column prop="order_no" label="单号" min-width="160">
         <template #default="{ row }">
           <el-button link type="primary" class="font-data" @click="goDetail(row.id)">
