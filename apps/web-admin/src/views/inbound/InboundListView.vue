@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import { listInboundOrders } from '@/api/inboundOrders'
+import { listSuppliers } from '@/api/suppliers'
+import { MAX_LIST_PAGE_SIZE } from '@/constants/api'
 import {
   INBOUND_ORDER_TYPE_LABEL,
   INBOUND_STATUS_LABEL,
@@ -11,7 +13,8 @@ import {
 } from '@/constants/labels'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAppStore } from '@/stores/app'
-import type { InboundOrderListItem, InboundStatus } from '@/types/api'
+import type { InboundOrderListItem, InboundStatus, Supplier } from '@/types/api'
+import { buildSupplierLabelById, labelFromMap } from '@/utils/catalogLabels'
 import { errorMessage } from '@/utils/errorMessage'
 
 const app = useAppStore()
@@ -21,6 +24,9 @@ const router = useRouter()
 const loading = ref(false)
 const items = ref<InboundOrderListItem[]>([])
 const total = ref(0)
+const supplierOptions = ref<Supplier[]>([])
+
+const supplierLabelById = computed(() => buildSupplierLabelById(supplierOptions.value))
 
 const statusValues = Object.keys(INBOUND_STATUS_LABEL) as InboundStatus[]
 
@@ -101,6 +107,27 @@ function orderTypeLabel(orderType: string): string {
   return INBOUND_ORDER_TYPE_LABEL[orderType] ?? orderType
 }
 
+function supplierLabel(supplierId: number | null): string {
+  if (supplierId == null) {
+    return '—'
+  }
+  return labelFromMap(supplierLabelById.value, supplierId)
+}
+
+async function loadSuppliers(): Promise<void> {
+  try {
+    const page = await listSuppliers({
+      selectable: true,
+      status: 1,
+      page: 1,
+      page_size: MAX_LIST_PAGE_SIZE,
+    })
+    supplierOptions.value = page.items
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '加载供应商选项失败'))
+  }
+}
+
 watch(
   () => app.warehouseId,
   () => {
@@ -119,6 +146,7 @@ watch(
 )
 
 onMounted(() => {
+  void loadSuppliers()
   void loadList()
 })
 </script>
@@ -169,9 +197,9 @@ onMounted(() => {
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="supplier_id" label="供应商" width="100">
+      <el-table-column prop="supplier_id" label="供应商" min-width="160">
         <template #default="{ row }">
-          {{ row.supplier_id ?? '—' }}
+          {{ supplierLabel(row.supplier_id) }}
         </template>
       </el-table-column>
       <el-table-column prop="created_at" label="创建时间" min-width="170">

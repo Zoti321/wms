@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Location, Sku } from '@/types/api'
+import type { Customer, Location, Sku, Supplier } from '@/types/api'
 import {
+  buildCustomerLabelById,
   buildLocationCodeById,
   buildSkuLabelById,
+  buildSupplierLabelById,
+  customerOptionLabel,
   labelFromMap,
   skuOptionLabel,
+  supplierOptionLabel,
 } from '@/utils/catalogLabels'
 
 describe('catalogLabels', () => {
@@ -18,6 +22,24 @@ describe('catalogLabels', () => {
       spec: null,
       barcode: null,
       safety_stock: '10',
+      status: 1,
+    },
+  ]
+
+  const suppliers: Supplier[] = [
+    {
+      id: 3,
+      supplier_code: 'SUP-001',
+      name: '华东供应商',
+      status: 1,
+    },
+  ]
+
+  const customers: Customer[] = [
+    {
+      id: 5,
+      customer_code: 'CUS-001',
+      name: '华南客户',
       status: 1,
     },
   ]
@@ -49,7 +71,30 @@ describe('catalogLabels', () => {
     expect(map.get(9)).toBe('A-01-01')
   })
 
+  it('formats supplier option label as code · name', () => {
+    expect(supplierOptionLabel(suppliers[0])).toBe('SUP-001 · 华东供应商')
+  })
+
+  it('formats customer option label as code · name', () => {
+    expect(customerOptionLabel(customers[0])).toBe('CUS-001 · 华南客户')
+  })
+
+  it('builds supplier id to label map', () => {
+    const map = buildSupplierLabelById(suppliers)
+    expect(map.get(3)).toBe('SUP-001 · 华东供应商')
+  })
+
+  it('builds customer id to label map', () => {
+    const map = buildCustomerLabelById(customers)
+    expect(map.get(5)).toBe('CUS-001 · 华南客户')
+  })
+
   it('falls back to string id when label missing', () => {
     expect(labelFromMap(new Map(), 42)).toBe('42')
+  })
+
+  it('falls back to string id for supplier and customer maps', () => {
+    expect(labelFromMap(buildSupplierLabelById(suppliers), 99)).toBe('99')
+    expect(labelFromMap(buildCustomerLabelById(customers), 88)).toBe('88')
   })
 })

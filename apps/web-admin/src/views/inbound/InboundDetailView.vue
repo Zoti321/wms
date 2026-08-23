@@ -12,6 +12,8 @@ import {
   submitInboundOrder,
 } from '@/api/inboundOrders'
 import { listLocations } from '@/api/locations'
+import { listSkus } from '@/api/skus'
+import { listSuppliers } from '@/api/suppliers'
 import { MAX_LIST_PAGE_SIZE } from '@/constants/api'
 import {
   INBOUND_ORDER_TYPE_LABEL,
@@ -20,7 +22,12 @@ import {
 } from '@/constants/labels'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAppStore } from '@/stores/app'
-import type { InboundOrder, InboundOrderLine, Location } from '@/types/api'
+import type { InboundOrder, InboundOrderLine, Location, Sku, Supplier } from '@/types/api'
+import {
+  buildSkuLabelById,
+  buildSupplierLabelById,
+  labelFromMap,
+} from '@/utils/catalogLabels'
 import { errorMessage } from '@/utils/errorMessage'
 
 const route = useRoute()
@@ -31,6 +38,11 @@ const loading = ref(false)
 const actionLoading = ref(false)
 const order = ref<InboundOrder | null>(null)
 const locationOptions = ref<Location[]>([])
+const skuOptions = ref<Sku[]>([])
+const supplierOptions = ref<Supplier[]>([])
+
+const skuLabelById = computed(() => buildSkuLabelById(skuOptions.value))
+const supplierLabelById = computed(() => buildSupplierLabelById(supplierOptions.value))
 
 const putawayVisible = ref(false)
 const putawaySaving = ref(false)
@@ -68,6 +80,19 @@ async function loadOrder(): Promise<void> {
   }
 }
 
+async function loadCatalogOptions(): Promise<void> {
+  try {
+    const [skus, suppliers] = await Promise.all([
+      listSkus({ selectable: true, status: 1, page: 1, page_size: MAX_LIST_PAGE_SIZE }),
+      listSuppliers({ selectable: true, status: 1, page: 1, page_size: MAX_LIST_PAGE_SIZE }),
+    ])
+    skuOptions.value = skus.items
+    supplierOptions.value = suppliers.items
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '加载主数据选项失败'))
+  }
+}
+
 async function loadLocations(): Promise<void> {
   const warehouseId = order.value?.warehouse_id ?? app.warehouseId
   if (warehouseId == null) {
@@ -87,6 +112,13 @@ async function loadLocations(): Promise<void> {
   } catch (error) {
     ElMessage.error(errorMessage(error, '加载库位失败'))
   }
+}
+
+function supplierLabel(supplierId: number | null): string {
+  if (supplierId == null) {
+    return '—'
+  }
+  return labelFromMap(supplierLabelById.value, supplierId)
 }
 
 async function runAction(
@@ -198,6 +230,7 @@ watch(
 )
 
 onMounted(() => {
+  void loadCatalogOptions()
   void loadOrder()
 })
 </script>
@@ -272,7 +305,7 @@ onMounted(() => {
           <span class="font-data">{{ order.warehouse_id }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="供应商">
-          {{ order.supplier_id ?? '—' }}
+          {{ supplierLabel(order.supplier_id) }}
         </el-descriptions-item>
         <el-descriptions-item label="创建时间">
           <span class="font-data">{{ order.created_at }}</span>
@@ -291,9 +324,9 @@ onMounted(() => {
             <span class="font-data">{{ row.id }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="sku_id" label="SKU ID" width="100">
+        <el-table-column prop="sku_id" label="SKU" min-width="160">
           <template #default="{ row }">
-            <span class="font-data">{{ row.sku_id }}</span>
+            {{ labelFromMap(skuLabelById, row.sku_id) }}
           </template>
         </el-table-column>
         <el-table-column prop="planned_qty" label="计划数量" width="120" align="right">

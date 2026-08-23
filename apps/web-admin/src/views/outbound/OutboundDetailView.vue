@@ -5,7 +5,9 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { listInventoryBalances } from '@/api/inventories'
+import { listCustomers } from '@/api/customers'
 import { listLocations } from '@/api/locations'
+import { listSkus } from '@/api/skus'
 import { MAX_LIST_PAGE_SIZE } from '@/constants/api'
 import {
   approveOutboundOrder,
@@ -21,7 +23,13 @@ import {
 } from '@/constants/labels'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAppStore } from '@/stores/app'
-import type { Location, OutboundOrder, OutboundOrderLine } from '@/types/api'
+import type { Customer, Location, OutboundOrder, OutboundOrderLine, Sku } from '@/types/api'
+import {
+  buildCustomerLabelById,
+  buildLocationCodeById,
+  buildSkuLabelById,
+  labelFromMap,
+} from '@/utils/catalogLabels'
 import { errorMessage } from '@/utils/errorMessage'
 
 interface ApproveLineRow {
@@ -41,13 +49,12 @@ const loading = ref(false)
 const actionLoading = ref(false)
 const order = ref<OutboundOrder | null>(null)
 const locationOptions = ref<Location[]>([])
-const locationLabelById = computed(() => {
-  const map = new Map<number, string>()
-  for (const loc of locationOptions.value) {
-    map.set(loc.id, loc.location_code)
-  }
-  return map
-})
+const skuOptions = ref<Sku[]>([])
+const customerOptions = ref<Customer[]>([])
+
+const skuLabelById = computed(() => buildSkuLabelById(skuOptions.value))
+const customerLabelById = computed(() => buildCustomerLabelById(customerOptions.value))
+const locationCodeById = computed(() => buildLocationCodeById(locationOptions.value))
 
 const approveVisible = ref(false)
 const approveSaving = ref(false)
@@ -108,6 +115,19 @@ async function loadOrder(): Promise<void> {
     ElMessage.error(errorMessage(error, '加载出库单失败'))
   } finally {
     loading.value = false
+  }
+}
+
+async function loadCatalogOptions(): Promise<void> {
+  try {
+    const [skus, customers] = await Promise.all([
+      listSkus({ selectable: true, status: 1, page: 1, page_size: MAX_LIST_PAGE_SIZE }),
+      listCustomers({ selectable: true, status: 1, page: 1, page_size: MAX_LIST_PAGE_SIZE }),
+    ])
+    skuOptions.value = skus.items
+    customerOptions.value = customers.items
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '加载主数据选项失败'))
   }
 }
 
@@ -314,11 +334,18 @@ function goBack(): void {
   void router.push({ name: ROUTE_NAMES.outboundList })
 }
 
+function customerLabel(customerId: number | null): string {
+  if (customerId == null) {
+    return '—'
+  }
+  return labelFromMap(customerLabelById.value, customerId)
+}
+
 function locationLabel(locationId: number | null): string {
   if (locationId == null) {
     return '—'
   }
-  return locationLabelById.value.get(locationId) ?? String(locationId)
+  return labelFromMap(locationCodeById.value, locationId)
 }
 
 watch(
@@ -329,6 +356,7 @@ watch(
 )
 
 onMounted(() => {
+  void loadCatalogOptions()
   void loadOrder()
   void loadLocations()
 })
@@ -404,7 +432,7 @@ onMounted(() => {
           <span class="font-data">{{ order.warehouse_id }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="客户">
-          {{ order.customer_id ?? '—' }}
+          {{ customerLabel(order.customer_id) }}
         </el-descriptions-item>
         <el-descriptions-item label="创建时间">
           <span class="font-data">{{ order.created_at }}</span>
@@ -423,9 +451,9 @@ onMounted(() => {
             <span class="font-data">{{ row.id }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="sku_id" label="SKU ID" width="100">
+        <el-table-column prop="sku_id" label="SKU" min-width="160">
           <template #default="{ row }">
-            <span class="font-data">{{ row.sku_id }}</span>
+            {{ labelFromMap(skuLabelById, row.sku_id) }}
           </template>
         </el-table-column>
         <el-table-column prop="planned_qty" label="计划数量" width="110" align="right">
@@ -473,9 +501,9 @@ onMounted(() => {
             <span class="font-data">{{ row.line_id }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="sku_id" label="SKU ID" width="90">
+        <el-table-column prop="sku_id" label="SKU" min-width="160">
           <template #default="{ row }">
-            <span class="font-data">{{ row.sku_id }}</span>
+            {{ labelFromMap(skuLabelById, row.sku_id) }}
           </template>
         </el-table-column>
         <el-table-column prop="planned_qty" label="计划数量" width="100" align="right">

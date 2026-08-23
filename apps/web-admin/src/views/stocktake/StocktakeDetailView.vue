@@ -9,23 +9,38 @@ import {
   getStocktake,
   recordStocktakeCounts,
 } from '@/api/stocktakes'
+import { listLocations } from '@/api/locations'
+import { listSkus } from '@/api/skus'
+import { MAX_LIST_PAGE_SIZE } from '@/constants/api'
 import {
   STOCKTAKE_STATUS_LABEL,
   STOCKTAKE_STATUS_TAG_TYPE,
 } from '@/constants/labels'
 import { ROUTE_NAMES } from '@/router/routes'
+import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
-import type { StocktakeOrder, StocktakeOrderLine } from '@/types/api'
+import type { Location, Sku, StocktakeOrder, StocktakeOrderLine } from '@/types/api'
+import {
+  buildLocationCodeById,
+  buildSkuLabelById,
+  labelFromMap,
+} from '@/utils/catalogLabels'
 import { errorMessage } from '@/utils/errorMessage'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const app = useAppStore()
 
 const loading = ref(false)
 const actionLoading = ref(false)
 const savingCounts = ref(false)
 const order = ref<StocktakeOrder | null>(null)
+const skuOptions = ref<Sku[]>([])
+const locationOptions = ref<Location[]>([])
+
+const skuLabelById = computed(() => buildSkuLabelById(skuOptions.value))
+const locationCodeById = computed(() => buildLocationCodeById(locationOptions.value))
 
 /** line_id → 编辑中的实盘数量字符串 */
 const countDrafts = reactive<Record<number, string>>({})
@@ -72,6 +87,28 @@ function syncCountDrafts(lines: StocktakeOrderLine[]): void {
   }
 }
 
+async function loadCatalogOptions(): Promise<void> {
+  const warehouseId = order.value?.warehouse_id ?? app.warehouseId
+  try {
+    const [skus, locations] = await Promise.all([
+      listSkus({ selectable: true, status: 1, page: 1, page_size: MAX_LIST_PAGE_SIZE }),
+      warehouseId != null
+        ? listLocations({
+            warehouse_id: warehouseId,
+            selectable: true,
+            status: 1,
+            page: 1,
+            page_size: MAX_LIST_PAGE_SIZE,
+          })
+        : Promise.resolve({ items: [], total: 0, page: 1, page_size: MAX_LIST_PAGE_SIZE }),
+    ])
+    skuOptions.value = skus.items
+    locationOptions.value = locations.items
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '加载主数据选项失败'))
+  }
+}
+
 async function loadOrder(): Promise<void> {
   if (!Number.isFinite(orderId.value)) {
     ElMessage.error('无效的盘点单 ID')
@@ -82,6 +119,7 @@ async function loadOrder(): Promise<void> {
   try {
     order.value = await getStocktake(orderId.value)
     syncCountDrafts(order.value.lines)
+    void loadCatalogOptions()
   } catch (error) {
     ElMessage.error(errorMessage(error, '加载盘点单失败'))
   } finally {
@@ -311,8 +349,16 @@ onMounted(() => {
       />
 
       <el-table :data="order.lines" size="small" style="margin-top: 12px">
-        <el-table-column prop="location_id" label="库位 ID" width="100" />
-        <el-table-column prop="sku_id" label="SKU ID" width="100" />
+        <el-table-column prop="location_id" label="库位" width="120">
+          <template #default="{ row }">
+            <span class="font-data">{{ labelFromMap(locationCodeById, row.location_id) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="sku_id" label="SKU" min-width="160">
+          <template #default="{ row }">
+            {{ labelFromMap(skuLabelById, row.sku_id) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="book_qty" label="账面数量" width="120">
           <template #default="{ row }">
             <span class="font-data">{{ row.book_qty }}</span>
