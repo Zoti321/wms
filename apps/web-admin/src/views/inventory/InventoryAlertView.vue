@@ -87,9 +87,9 @@ onMounted(() => {
           <span class="font-data">{{ row.sku_id }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="qty_available" label="汇总可用" min-width="120" align="right">
+      <el-table-column prop="qty_available" label="可用数量" min-width="120" align="right">
         <template #default="{ row }">
-          <span class="qty-cell">{{ row.qty_available }}</span>
+          <el-tag size="small" type="danger">{{ row.qty_available }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="safety_stock" label="安全库存" min-width="120" align="right">

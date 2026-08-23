@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { listInventoryAlerts } from '@/api/inventories'
@@ -106,6 +106,13 @@ async function loadOpenAlertCount(): Promise<void> {
     openAlertCount.value = null
   }
 }
+
+watch(
+  () => app.warehouseId,
+  () => {
+    void loadOpenAlertCount()
+  },
+)
 
 onMounted(() => {
   void loadOpenAlertCount()
