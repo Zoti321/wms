@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/api/client', () => ({
   apiClient: {
+    get: vi.fn(),
     post: vi.fn(),
   },
   requestData: vi.fn(async (promise: Promise<unknown>) => {
@@ -18,6 +19,7 @@ import { apiClient, requestData } from '@/api/client'
 import {
   approveOutboundOrder,
   cancelOutboundOrder,
+  listOutboundOrders,
   pickOutboundOrder,
 } from '@/api/outboundOrders'
 
@@ -33,6 +35,44 @@ const sampleOrder = {
   created_at: '2026-01-01 00:00:00',
   lines: [],
 }
+
+describe('listOutboundOrders', () => {
+  beforeEach(() => {
+    vi.mocked(apiClient.get).mockReset()
+    vi.mocked(requestData).mockClear()
+  })
+
+  it('passes order_no and order_type query params', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: {
+        code: 0,
+        message: 'ok',
+        data: { items: [], total: 0, page: 1, page_size: 20 },
+        traceId: 't1',
+      },
+    } as never)
+
+    await listOutboundOrders({
+      warehouse_id: 1,
+      status: 'pending',
+      order_no: 'OUT-001',
+      order_type: 'sales',
+      page: 1,
+      page_size: 20,
+    })
+
+    expect(apiClient.get).toHaveBeenCalledWith('/outbound-orders', {
+      params: {
+        warehouse_id: 1,
+        status: 'pending',
+        order_no: 'OUT-001',
+        order_type: 'sales',
+        page: 1,
+        page_size: 20,
+      },
+    })
+  })
+})
 
 describe('outboundOrders idempotent actions', () => {
   beforeEach(() => {

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/api/client', () => ({
   apiClient: {
+    get: vi.fn(),
     post: vi.fn(),
     patch: vi.fn(),
   },
@@ -16,7 +17,45 @@ vi.mock('@/utils/idempotency', () => ({
 }))
 
 import { apiClient, requestData } from '@/api/client'
-import { putawayInboundOrder, updateInboundOrder } from '@/api/inboundOrders'
+import { listInboundOrders, putawayInboundOrder, updateInboundOrder } from '@/api/inboundOrders'
+
+describe('listInboundOrders', () => {
+  beforeEach(() => {
+    vi.mocked(apiClient.get).mockReset()
+    vi.mocked(requestData).mockClear()
+  })
+
+  it('passes order_no and order_type query params', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: {
+        code: 0,
+        message: 'ok',
+        data: { items: [], total: 0, page: 1, page_size: 20 },
+        traceId: 't1',
+      },
+    } as never)
+
+    await listInboundOrders({
+      warehouse_id: 1,
+      status: 'pending',
+      order_no: 'INB-001',
+      order_type: 'purchase',
+      page: 1,
+      page_size: 20,
+    })
+
+    expect(apiClient.get).toHaveBeenCalledWith('/inbound-orders', {
+      params: {
+        warehouse_id: 1,
+        status: 'pending',
+        order_no: 'INB-001',
+        order_type: 'purchase',
+        page: 1,
+        page_size: 20,
+      },
+    })
+  })
+})
 
 describe('putawayInboundOrder', () => {
   beforeEach(() => {

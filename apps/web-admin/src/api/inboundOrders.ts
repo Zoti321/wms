@@ -14,6 +14,8 @@ import { createIdempotencyKey } from '@/utils/idempotency'
 export interface InboundOrderListQuery {
   warehouse_id?: number
   status?: string
+  order_no?: string
+  order_type?: string
   page?: number
   page_size?: number
 }

@@ -2924,6 +2924,38 @@
             }
           },
           {
+            "name": "order_no",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Order No"
+            }
+          },
+          {
+            "name": "order_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Order Type"
+            }
+          },
+          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -3390,6 +3422,38 @@
                 }
               ],
               "title": "Status"
+            }
+          },
+          {
+            "name": "order_no",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Order No"
+            }
+          },
+          {
+            "name": "order_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Order Type"
             }
           },
           {

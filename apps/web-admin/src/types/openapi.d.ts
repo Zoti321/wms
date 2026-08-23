@@ -2639,6 +2639,8 @@ export interface operations {
             query?: {
                 warehouse_id?: number | null;
                 status?: string | null;
+                order_no?: string | null;
+                order_type?: string | null;
                 /** @description 页码，从 1 开始 */
                 page?: number;
                 /** @description 每页条数，默认 20，上限 100 */
@@ -2918,6 +2920,8 @@ export interface operations {
             query?: {
                 warehouse_id?: number | null;
                 status?: string | null;
+                order_no?: string | null;
+                order_type?: string | null;
                 /** @description 页码，从 1 开始 */
                 page?: number;
                 /** @description 每页条数，默认 20，上限 100 */

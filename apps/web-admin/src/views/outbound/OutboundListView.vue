@@ -11,7 +11,7 @@ import {
 } from '@/constants/labels'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAppStore } from '@/stores/app'
-import type { OutboundOrderListItem, OutboundStatus } from '@/types/api'
+import type { OutboundOrderListItem, OutboundOrderType, OutboundStatus } from '@/types/api'
 import { errorMessage } from '@/utils/errorMessage'
 
 const app = useAppStore()
@@ -33,15 +33,24 @@ function statusFromQuery(): OutboundStatus | undefined {
 
 const filters = reactive({
   status: statusFromQuery(),
+  order_no: '',
+  order_type: undefined as OutboundOrderType | undefined,
   page: 1,
   page_size: 20,
 })
+
+const hasActiveFilters = computed(
+  () =>
+    filters.status != null ||
+    filters.order_no.trim() !== '' ||
+    filters.order_type != null,
+)
 
 const emptyText = computed(() => {
   if (app.warehouseId == null) {
     return '请先确认仓库上下文'
   }
-  if (filters.status != null) {
+  if (hasActiveFilters.value) {
     return '未找到符合条件的出库单，请调整筛选条件'
   }
   return '暂无数据'
@@ -58,6 +67,8 @@ async function loadList(): Promise<void> {
     const page = await listOutboundOrders({
       warehouse_id: app.warehouseId,
       status: filters.status,
+      order_no: filters.order_no.trim() || undefined,
+      order_type: filters.order_type,
       page: filters.page,
       page_size: filters.page_size,
     })
@@ -77,6 +88,8 @@ function onSearch(): void {
 
 function onReset(): void {
   filters.status = undefined
+  filters.order_no = ''
+  filters.order_type = undefined
   filters.page = 1
   void loadList()
 }
@@ -133,6 +146,29 @@ onMounted(() => {
     </div>
 
     <el-form class="page-filters" :inline="true" @submit.prevent="onSearch">
+      <el-form-item label="单号">
+        <el-input
+          v-model="filters.order_no"
+          clearable
+          placeholder="单号关键字"
+          style="width: 180px"
+        />
+      </el-form-item>
+      <el-form-item label="类型">
+        <el-select
+          v-model="filters.order_type"
+          clearable
+          placeholder="全部"
+          style="width: 140px"
+        >
+          <el-option
+            v-for="(label, value) in OUTBOUND_ORDER_TYPE_LABEL"
+            :key="value"
+            :value="value"
+            :label="label"
+          />
+        </el-select>
+      </el-form-item>
       <el-form-item label="状态">
         <el-select v-model="filters.status" clearable placeholder="全部" style="width: 140px">
           <el-option

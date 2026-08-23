@@ -193,14 +193,22 @@ def list_orders(
     *,
     warehouse_id: int | None = None,
     status: str | None = None,
+    order_no: str | None = None,
+    order_type: str | None = None,
     page: int = 1,
     page_size: int = 20,
 ) -> dict:
+    if order_type is not None and order_type not in ORDER_TYPES:
+        raise OutboundError("无效的出库类型")
     stmt = select(OutboundOrder)
     if warehouse_id is not None:
         stmt = stmt.where(OutboundOrder.warehouse_id == warehouse_id)
     if status is not None:
         stmt = stmt.where(OutboundOrder.status == status)
+    if order_no:
+        stmt = stmt.where(OutboundOrder.order_no.like(f"%{order_no}%"))
+    if order_type is not None:
+        stmt = stmt.where(OutboundOrder.order_type == order_type)
     stmt = stmt.order_by(OutboundOrder.created_at.desc(), OutboundOrder.id.desc())
     rows, total = paginate(session, stmt, page=page, page_size=page_size)
     return paginated_payload(

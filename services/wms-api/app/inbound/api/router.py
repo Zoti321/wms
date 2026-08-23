@@ -55,20 +55,27 @@ def create_inbound_order(
 def list_inbound_orders(
     warehouse_id: int | None = None,
     status: str | None = None,
+    order_no: str | None = None,
+    order_type: str | None = None,
     paging: tuple[int, int] = Depends(pagination_query),
     session: Session = Depends(get_db),
     _: CurrentUser = Depends(require_permissions(PERM_INBOUND_READ)),
 ) -> dict:
     page, page_size = paging
-    return ok(
-        svc.list_orders(
-            session,
-            warehouse_id=warehouse_id,
-            status=status,
-            page=page,
-            page_size=page_size,
+    try:
+        return ok(
+            svc.list_orders(
+                session,
+                warehouse_id=warehouse_id,
+                status=status,
+                order_no=order_no,
+                order_type=order_type,
+                page=page,
+                page_size=page_size,
+            )
         )
-    )
+    except svc.InboundError as exc:
+        map_domain_error(exc, _INBOUND_RULES)
 
 
 @router.get("/{order_id}")
