@@ -4,9 +4,11 @@ import { useRoute, useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
 
+import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
+const app = useAppStore()
 const router = useRouter()
 const route = useRoute()
 
@@ -34,6 +36,7 @@ async function onSubmit(): Promise<void> {
 
   try {
     await auth.login(form.value.username, form.value.password)
+    await app.ensureWarehouse()
     await router.replace(redirectPath.value)
   } catch (error) {
     const message = error instanceof Error ? error.message : '登录失败'

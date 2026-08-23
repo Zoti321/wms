@@ -31,8 +31,8 @@ describe('resolveRouteGuard', () => {
   it('redirects to forbidden when permission is missing', async () => {
     const result = await resolveRouteGuard(
       routeOf({
-        name: ROUTE_NAMES.catalog,
-        fullPath: '/catalog',
+        name: ROUTE_NAMES.catalogSkus,
+        fullPath: '/catalog/skus',
         meta: { permission: 'catalog:read' },
       }),
       {
@@ -52,8 +52,8 @@ describe('resolveRouteGuard', () => {
 
     const result = await resolveRouteGuard(
       routeOf({
-        name: ROUTE_NAMES.catalog,
-        fullPath: '/catalog',
+        name: ROUTE_NAMES.catalogSkus,
+        fullPath: '/catalog/skus',
         meta: { permission: 'catalog:read' },
       }),
       {
@@ -81,5 +81,44 @@ describe('resolveRouteGuard', () => {
     )
 
     expect(result).toBe(true)
+  })
+
+  it('allows inbound routes when inbound:read is granted', async () => {
+    const hasPermission = vi.fn().mockReturnValue(true)
+
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.inboundList,
+        fullPath: '/inbound',
+        meta: { permission: 'inbound:read' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['inbound:read'] },
+        hasPermission,
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(hasPermission).toHaveBeenCalledWith('inbound:read')
+    expect(result).toBe(true)
+  })
+
+  it('forbids inventory routes without inventory:read', async () => {
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.inventoryBalances,
+        fullPath: '/inventory',
+        meta: { permission: 'inventory:read' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['inbound:read'] },
+        hasPermission: (p) => p === 'inbound:read',
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
   })
 })

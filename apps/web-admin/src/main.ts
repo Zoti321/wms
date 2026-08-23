@@ -8,6 +8,7 @@ import { registerUnauthorizedHandler } from '@/api/unauthorized'
 import { vPermission } from '@/directives/permission'
 import router from '@/router'
 import { ROUTE_NAMES } from '@/router/routes'
+import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import 'element-plus/dist/index.css'
 import '@/styles/global.css'
@@ -22,6 +23,7 @@ app.directive('permission', vPermission)
 
 registerUnauthorizedHandler(() => {
   useAuthStore(pinia).logout()
+  useAppStore(pinia).clearWarehouse()
   if (router.currentRoute.value.name !== ROUTE_NAMES.login) {
     void router.push({ name: ROUTE_NAMES.login })
   }
