@@ -6,6 +6,7 @@ import {
   Goods,
   HomeFilled,
   OfficeBuilding,
+  Sell,
   TakeawayBox,
 } from '@element-plus/icons-vue'
 
@@ -22,6 +23,7 @@ const iconMap: Record<string, typeof HomeFilled> = {
   '/dashboard': HomeFilled,
   主数据: OfficeBuilding,
   '/inbound': TakeawayBox,
+  '/outbound': Sell,
   库存: Box,
   '/catalog/skus': Goods,
   '/catalog/locations': OfficeBuilding,

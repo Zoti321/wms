@@ -31,6 +31,12 @@ const shortcuts = computed(() => {
       permission: 'inbound:read',
     },
     {
+      title: '出库单',
+      desc: '查看与处理出库',
+      route: ROUTE_NAMES.outboundList,
+      permission: 'outbound:read',
+    },
+    {
       title: '库存余额',
       desc: '查询在库与可用数量',
       route: ROUTE_NAMES.inventoryBalances,
@@ -43,6 +49,13 @@ const shortcuts = computed(() => {
 function goPendingInbound(): void {
   void router.push({
     name: ROUTE_NAMES.inboundList,
+    query: { status: 'pending' },
+  })
+}
+
+function goPendingOutbound(): void {
+  void router.push({
+    name: ROUTE_NAMES.outboundList,
     query: { status: 'pending' },
   })
 }
@@ -72,9 +85,27 @@ function go(name: string): void {
       <template v-else>正在确认仓库上下文…</template>
     </p>
 
-    <div v-if="auth.hasPermission('inbound:read')" class="todo-row">
+    <div
+      v-if="auth.hasPermission('inbound:read') || auth.hasPermission('outbound:read')"
+      class="todo-row"
+    >
       <span>待办</span>
-      <el-button link type="primary" @click="goPendingInbound">待审核入库单</el-button>
+      <el-button
+        v-if="auth.hasPermission('inbound:read')"
+        link
+        type="primary"
+        @click="goPendingInbound"
+      >
+        待审核入库单
+      </el-button>
+      <el-button
+        v-if="auth.hasPermission('outbound:read')"
+        link
+        type="primary"
+        @click="goPendingOutbound"
+      >
+        待审核出库单
+      </el-button>
     </div>
 
     <div class="shortcuts">

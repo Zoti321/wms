@@ -1,4 +1,4 @@
-import type { InboundStatus } from '@/types/api'
+import type { InboundStatus, OutboundStatus } from '@/types/api'
 
 export const INBOUND_STATUS_LABEL: Record<InboundStatus, string> = {
   draft: '草稿',
@@ -25,6 +25,33 @@ export const INBOUND_ORDER_TYPE_LABEL: Record<string, string> = {
   purchase: '采购入库',
   return: '退货入库',
   other: '其他入库',
+}
+
+export const OUTBOUND_STATUS_LABEL: Record<OutboundStatus, string> = {
+  draft: '草稿',
+  pending: '待审核',
+  approved: '已审核',
+  picking: '拣货中',
+  done: '已完成',
+  cancelled: '已取消',
+}
+
+export const OUTBOUND_STATUS_TAG_TYPE: Record<
+  OutboundStatus,
+  'info' | 'warning' | 'success' | 'primary' | 'danger'
+> = {
+  draft: 'info',
+  pending: 'warning',
+  approved: 'primary',
+  picking: 'warning',
+  done: 'success',
+  cancelled: 'info',
+}
+
+export const OUTBOUND_ORDER_TYPE_LABEL: Record<string, string> = {
+  sales: '销售出库',
+  material: '领料出库',
+  other: '其他出库',
 }
 
 export const ACTIVE_STATUS_LABEL: Record<number, string> = {

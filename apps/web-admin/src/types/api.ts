@@ -24,6 +24,12 @@ export type InboundOrderCreate = components['schemas']['InboundOrderCreate']
 export type InboundOrderUpdate = components['schemas']['InboundOrderUpdate']
 export type InboundLineInput = components['schemas']['InboundLineInput']
 export type PutawayRequest = components['schemas']['PutawayRequest']
+export type OutboundOrderCreate = components['schemas']['OutboundOrderCreate']
+export type OutboundOrderUpdate = components['schemas']['OutboundOrderUpdate']
+export type OutboundLineInput = components['schemas']['OutboundLineInput']
+export type ApproveRequest = components['schemas']['ApproveRequest']
+export type AllocationInput = components['schemas']['AllocationInput']
+export type PickRequest = components['schemas']['PickRequest']
 
 /**
  * 登录/业务 data 载荷。FastAPI 路由以 ok(dict) 返回且未声明 response_model，
@@ -77,6 +83,13 @@ export interface Supplier {
   status: number
 }
 
+export interface Customer {
+  id: number
+  customer_code: string
+  name: string
+  status: number
+}
+
 export type InboundStatus =
   | 'draft'
   | 'pending'
@@ -114,6 +127,59 @@ export interface PutawayResult {
   order: InboundOrder
   putaway_record_id?: number
   increase?: unknown
+  replayed?: boolean
+}
+
+export type OutboundStatus =
+  | 'draft'
+  | 'pending'
+  | 'approved'
+  | 'picking'
+  | 'done'
+  | 'cancelled'
+
+export type OutboundOrderType = 'sales' | 'material' | 'other'
+
+export interface OutboundOrderLine {
+  id: number
+  sku_id: number
+  planned_qty: string
+  allocated_qty: string
+  picked_qty: string
+  location_id: number | null
+}
+
+export interface OutboundOrderListItem {
+  id: number
+  order_no: string
+  warehouse_id: number
+  order_type: OutboundOrderType
+  status: OutboundStatus
+  created_at: string
+}
+
+export interface OutboundOrder extends OutboundOrderListItem {
+  customer_id: number | null
+  remark: string | null
+  created_by: number
+  lines: OutboundOrderLine[]
+}
+
+export interface ApproveResult {
+  order: OutboundOrder
+  replayed?: boolean
+}
+
+export interface PickResult {
+  order: OutboundOrder
+  pick_record_id?: number
+  deduct?: unknown
+  replayed?: boolean
+}
+
+export interface CancelResult {
+  order: OutboundOrder
+  note?: string | null
   replayed?: boolean
 }
 

@@ -8,6 +8,10 @@ export const ROUTE_NAMES = {
   inboundList: 'inbound-list',
   inboundCreate: 'inbound-create',
   inboundDetail: 'inbound-detail',
+  outboundList: 'outbound-list',
+  outboundCreate: 'outbound-create',
+  outboundEdit: 'outbound-edit',
+  outboundDetail: 'outbound-detail',
   inventoryBalances: 'inventory-balances',
   inventoryLedgers: 'inventory-ledgers',
   forbidden: 'forbidden',
@@ -82,6 +86,42 @@ export const appRoutes: RouteRecordRaw[] = [
         meta: {
           title: '入库单详情',
           permission: 'inbound:read',
+        },
+      },
+      {
+        path: 'outbound',
+        name: ROUTE_NAMES.outboundList,
+        component: () => import('@/views/outbound/OutboundListView.vue'),
+        meta: {
+          title: '出库单',
+          permission: 'outbound:read',
+        },
+      },
+      {
+        path: 'outbound/create',
+        name: ROUTE_NAMES.outboundCreate,
+        component: () => import('@/views/outbound/OutboundFormView.vue'),
+        meta: {
+          title: '新建出库单',
+          permission: 'outbound:write',
+        },
+      },
+      {
+        path: 'outbound/:id/edit',
+        name: ROUTE_NAMES.outboundEdit,
+        component: () => import('@/views/outbound/OutboundFormView.vue'),
+        meta: {
+          title: '编辑出库单',
+          permission: 'outbound:write',
+        },
+      },
+      {
+        path: 'outbound/:id',
+        name: ROUTE_NAMES.outboundDetail,
+        component: () => import('@/views/outbound/OutboundDetailView.vue'),
+        meta: {
+          title: '出库单详情',
+          permission: 'outbound:read',
         },
       },
       {

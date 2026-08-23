@@ -104,6 +104,45 @@ describe('resolveRouteGuard', () => {
     expect(result).toBe(true)
   })
 
+  it('allows outbound routes when outbound:read is granted', async () => {
+    const hasPermission = vi.fn().mockReturnValue(true)
+
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.outboundList,
+        fullPath: '/outbound',
+        meta: { permission: 'outbound:read' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['outbound:read'] },
+        hasPermission,
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(hasPermission).toHaveBeenCalledWith('outbound:read')
+    expect(result).toBe(true)
+  })
+
+  it('forbids outbound create without outbound:write', async () => {
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.outboundCreate,
+        fullPath: '/outbound/create',
+        meta: { permission: 'outbound:write' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['outbound:read'] },
+        hasPermission: (p) => p === 'outbound:read',
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
+  })
+
   it('forbids inventory routes without inventory:read', async () => {
     const result = await resolveRouteGuard(
       routeOf({
