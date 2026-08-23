@@ -1,4 +1,4 @@
-import type { InboundStatus, OutboundStatus } from '@/types/api'
+import type { InboundStatus, OutboundStatus, StocktakeStatus } from '@/types/api'
 
 export const INBOUND_STATUS_LABEL: Record<InboundStatus, string> = {
   draft: '草稿',
@@ -63,4 +63,19 @@ export const SPACE_STATUS_LABEL: Record<string, string> = {
   idle: '空闲',
   occupied: '占用',
   frozen: '冻结',
+}
+
+export const STOCKTAKE_STATUS_LABEL: Record<StocktakeStatus, string> = {
+  counting: '盘点中',
+  approved: '已完成',
+  cancelled: '已取消',
+}
+
+export const STOCKTAKE_STATUS_TAG_TYPE: Record<
+  StocktakeStatus,
+  'info' | 'warning' | 'success' | 'primary' | 'danger'
+> = {
+  counting: 'warning',
+  approved: 'success',
+  cancelled: 'info',
 }

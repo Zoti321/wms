@@ -143,6 +143,45 @@ describe('resolveRouteGuard', () => {
     expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
   })
 
+  it('allows stocktake routes when stocktake:read is granted', async () => {
+    const hasPermission = vi.fn().mockReturnValue(true)
+
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.stocktakeList,
+        fullPath: '/stocktakes',
+        meta: { permission: 'stocktake:read' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['stocktake:read'] },
+        hasPermission,
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(hasPermission).toHaveBeenCalledWith('stocktake:read')
+    expect(result).toBe(true)
+  })
+
+  it('forbids stocktake create without stocktake:write', async () => {
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.stocktakeCreate,
+        fullPath: '/stocktakes/create',
+        meta: { permission: 'stocktake:write' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['stocktake:read'] },
+        hasPermission: (p) => p === 'stocktake:read',
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
+  })
+
   it('forbids inventory routes without inventory:read', async () => {
     const result = await resolveRouteGuard(
       routeOf({

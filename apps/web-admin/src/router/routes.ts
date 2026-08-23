@@ -14,6 +14,9 @@ export const ROUTE_NAMES = {
   outboundDetail: 'outbound-detail',
   inventoryBalances: 'inventory-balances',
   inventoryLedgers: 'inventory-ledgers',
+  stocktakeList: 'stocktake-list',
+  stocktakeCreate: 'stocktake-create',
+  stocktakeDetail: 'stocktake-detail',
   forbidden: 'forbidden',
 } as const
 
@@ -122,6 +125,33 @@ export const appRoutes: RouteRecordRaw[] = [
         meta: {
           title: '出库单详情',
           permission: 'outbound:read',
+        },
+      },
+      {
+        path: 'stocktakes',
+        name: ROUTE_NAMES.stocktakeList,
+        component: () => import('@/views/stocktake/StocktakeListView.vue'),
+        meta: {
+          title: '盘点单',
+          permission: 'stocktake:read',
+        },
+      },
+      {
+        path: 'stocktakes/create',
+        name: ROUTE_NAMES.stocktakeCreate,
+        component: () => import('@/views/stocktake/StocktakeFormView.vue'),
+        meta: {
+          title: '发起盘点',
+          permission: 'stocktake:write',
+        },
+      },
+      {
+        path: 'stocktakes/:id',
+        name: ROUTE_NAMES.stocktakeDetail,
+        component: () => import('@/views/stocktake/StocktakeDetailView.vue'),
+        meta: {
+          title: '盘点单详情',
+          permission: 'stocktake:read',
         },
       },
       {

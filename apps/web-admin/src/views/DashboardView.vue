@@ -37,6 +37,12 @@ const shortcuts = computed(() => {
       permission: 'outbound:read',
     },
     {
+      title: '盘点单',
+      desc: '发起盘点与审核调账',
+      route: ROUTE_NAMES.stocktakeList,
+      permission: 'stocktake:read',
+    },
+    {
       title: '库存余额',
       desc: '查询在库与可用数量',
       route: ROUTE_NAMES.inventoryBalances,
@@ -57,6 +63,13 @@ function goPendingOutbound(): void {
   void router.push({
     name: ROUTE_NAMES.outboundList,
     query: { status: 'pending' },
+  })
+}
+
+function goCountingStocktakes(): void {
+  void router.push({
+    name: ROUTE_NAMES.stocktakeList,
+    query: { status: 'counting' },
   })
 }
 
@@ -86,7 +99,11 @@ function go(name: string): void {
     </p>
 
     <div
-      v-if="auth.hasPermission('inbound:read') || auth.hasPermission('outbound:read')"
+      v-if="
+        auth.hasPermission('inbound:read') ||
+        auth.hasPermission('outbound:read') ||
+        auth.hasPermission('stocktake:read')
+      "
       class="todo-row"
     >
       <span>待办</span>
@@ -105,6 +122,14 @@ function go(name: string): void {
         @click="goPendingOutbound"
       >
         待审核出库单
+      </el-button>
+      <el-button
+        v-if="auth.hasPermission('stocktake:read')"
+        link
+        type="primary"
+        @click="goCountingStocktakes"
+      >
+        进行中盘点
       </el-button>
     </div>
 

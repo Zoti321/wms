@@ -52,6 +52,12 @@ export const SIDE_MENU: SideMenuEntry[] = [
     permission: 'outbound:read',
   },
   {
+    kind: 'item',
+    title: '盘点',
+    path: '/stocktakes',
+    permission: 'stocktake:read',
+  },
+  {
     kind: 'group',
     title: '库存',
     permission: 'inventory:read',

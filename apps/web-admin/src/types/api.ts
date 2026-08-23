@@ -30,6 +30,8 @@ export type OutboundLineInput = components['schemas']['OutboundLineInput']
 export type ApproveRequest = components['schemas']['ApproveRequest']
 export type AllocationInput = components['schemas']['AllocationInput']
 export type PickRequest = components['schemas']['PickRequest']
+export type StocktakeOrderCreate = components['schemas']['StocktakeOrderCreate']
+export type CountLineInput = components['schemas']['CountLineInput']
 
 /**
  * 登录/业务 data 载荷。FastAPI 路由以 ok(dict) 返回且未声明 response_model，
@@ -180,6 +182,38 @@ export interface PickResult {
 export interface CancelResult {
   order: OutboundOrder
   note?: string | null
+  replayed?: boolean
+}
+
+export type StocktakeStatus = 'counting' | 'approved' | 'cancelled'
+
+export interface StocktakeOrderLine {
+  id: number
+  location_id: number
+  sku_id: number
+  book_qty: string
+  counted_qty: string | null
+  diff_qty: string | null
+}
+
+export interface StocktakeOrderListItem {
+  id: number
+  order_no: string
+  warehouse_id: number
+  status: StocktakeStatus
+  created_at: string
+}
+
+export interface StocktakeOrder extends StocktakeOrderListItem {
+  zone: string | null
+  remark: string | null
+  created_by: number
+  approved_by: number | null
+  lines: StocktakeOrderLine[]
+}
+
+export interface StocktakeOrderResult {
+  order: StocktakeOrder
   replayed?: boolean
 }
 
