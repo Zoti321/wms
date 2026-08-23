@@ -6,6 +6,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { listInventoryBalances } from '@/api/inventories'
 import { listLocations } from '@/api/locations'
+import { MAX_LIST_PAGE_SIZE } from '@/constants/api'
 import {
   approveOutboundOrder,
   cancelOutboundOrder,
@@ -123,7 +124,7 @@ async function loadLocations(): Promise<void> {
       selectable: true,
       status: 1,
       page: 1,
-      page_size: 200,
+      page_size: MAX_LIST_PAGE_SIZE,
     })
     locationOptions.value = page.items
   } catch (error) {

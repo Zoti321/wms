@@ -12,6 +12,7 @@ import {
   submitInboundOrder,
 } from '@/api/inboundOrders'
 import { listLocations } from '@/api/locations'
+import { MAX_LIST_PAGE_SIZE } from '@/constants/api'
 import {
   INBOUND_ORDER_TYPE_LABEL,
   INBOUND_STATUS_LABEL,
@@ -80,7 +81,7 @@ async function loadLocations(): Promise<void> {
       selectable: true,
       status: 1,
       page: 1,
-      page_size: 200,
+      page_size: MAX_LIST_PAGE_SIZE,
     })
     locationOptions.value = page.items
   } catch (error) {

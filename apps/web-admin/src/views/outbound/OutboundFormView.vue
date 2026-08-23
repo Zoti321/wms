@@ -13,6 +13,7 @@ import {
 } from '@/api/outboundOrders'
 import { listSkus } from '@/api/skus'
 import { OUTBOUND_ORDER_TYPE_LABEL } from '@/constants/labels'
+import { MAX_LIST_PAGE_SIZE } from '@/constants/api'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAppStore } from '@/stores/app'
 import type { Customer, OutboundOrderType, Sku } from '@/types/api'
@@ -60,8 +61,8 @@ const pageTitle = computed(() => (isEdit.value ? '编辑出库单' : '新建出�
 async function loadOptions(): Promise<void> {
   try {
     const [skus, customers] = await Promise.all([
-      listSkus({ selectable: true, status: 1, page: 1, page_size: 200 }),
-      listCustomers({ selectable: true, status: 1, page: 1, page_size: 200 }),
+      listSkus({ selectable: true, status: 1, page: 1, page_size: MAX_LIST_PAGE_SIZE }),
+      listCustomers({ selectable: true, status: 1, page: 1, page_size: MAX_LIST_PAGE_SIZE }),
     ])
     skuOptions.value = skus.items
     customerOptions.value = customers.items

@@ -27,3 +27,9 @@ pnpm dev:web-admin
 ## 环境变量
 
 复制 `.env.example` 为 `.env`。本地开发可留空 `VITE_API_BASE_URL` 以使用代理。
+
+## 与后端协作约定
+
+- **包管理器**：在 `apps/` 下统一使用 **pnpm**（`packageManager: pnpm@10.22.0`），勿使用 npm / yarn 安装依赖。
+- **列表分页**：后端只读列表的 `page_size` 上限为 **100**（见 `services/wms-api/app/shared/pagination.py`）。前端下拉、批量加载选项时使用 `src/constants/api.ts` 中的 `MAX_LIST_PAGE_SIZE`，勿硬编码更大的值；超过上限会收到 **422** 校验错误。
+- **OpenAPI 类型**：契约变更后执行 `pnpm --filter web-admin generate:openapi-snapshot` 与 `generate:api` 更新 `openapi.d.ts`。

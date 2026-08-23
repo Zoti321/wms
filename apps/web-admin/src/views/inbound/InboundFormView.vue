@@ -9,6 +9,7 @@ import { createInboundOrder } from '@/api/inboundOrders'
 import { listSkus } from '@/api/skus'
 import { listSuppliers } from '@/api/suppliers'
 import { INBOUND_ORDER_TYPE_LABEL } from '@/constants/labels'
+import { MAX_LIST_PAGE_SIZE } from '@/constants/api'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAppStore } from '@/stores/app'
 import type { InboundOrderType, Sku, Supplier } from '@/types/api'
@@ -41,8 +42,8 @@ const formRules: FormRules = {
 async function loadOptions(): Promise<void> {
   try {
     const [skus, suppliers] = await Promise.all([
-      listSkus({ selectable: true, status: 1, page: 1, page_size: 200 }),
-      listSuppliers({ selectable: true, status: 1, page: 1, page_size: 200 }),
+      listSkus({ selectable: true, status: 1, page: 1, page_size: MAX_LIST_PAGE_SIZE }),
+      listSuppliers({ selectable: true, status: 1, page: 1, page_size: MAX_LIST_PAGE_SIZE }),
     ])
     skuOptions.value = skus.items
     supplierOptions.value = suppliers.items
