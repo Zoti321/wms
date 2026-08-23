@@ -1,6 +1,7 @@
 import { apiClient, requestData } from '@/api/client'
 import type {
   ApiEnvelope,
+  InventoryAlert,
   InventoryBalance,
   InventoryLedger,
   Paginated,
@@ -24,6 +25,12 @@ export interface InventoryLedgerQuery {
   page_size?: number
 }
 
+export interface InventoryAlertQuery {
+  warehouse_id?: number
+  page?: number
+  page_size?: number
+}
+
 export async function listInventoryBalances(
   query: InventoryBalanceQuery = {},
 ): Promise<Paginated<InventoryBalance>> {
@@ -39,6 +46,16 @@ export async function listInventoryLedgers(
 ): Promise<Paginated<InventoryLedger>> {
   return requestData(
     apiClient.get<ApiEnvelope<Paginated<InventoryLedger>>>('/inventories/ledgers', {
+      params: query,
+    }),
+  )
+}
+
+export async function listInventoryAlerts(
+  query: InventoryAlertQuery = {},
+): Promise<Paginated<InventoryAlert>> {
+  return requestData(
+    apiClient.get<ApiEnvelope<Paginated<InventoryAlert>>>('/inventories/alerts', {
       params: query,
     }),
   )

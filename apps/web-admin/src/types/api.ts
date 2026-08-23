@@ -243,6 +243,18 @@ export interface InventoryLedger {
   created_at: string
 }
 
+export type InventoryAlertStatus = 'open' | 'cleared'
+
+export interface InventoryAlert {
+  id: number
+  warehouse_id: number
+  sku_id: number
+  qty_available: string
+  safety_stock: string
+  status: InventoryAlertStatus
+  created_at: string
+}
+
 export class ApiError extends Error {
   readonly code: number
   readonly traceId?: string

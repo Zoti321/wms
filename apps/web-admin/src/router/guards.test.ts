@@ -199,4 +199,25 @@ describe('resolveRouteGuard', () => {
 
     expect(result).toEqual({ name: ROUTE_NAMES.forbidden })
   })
+
+  it('allows inventory alert routes when inventory:read is granted', async () => {
+    const hasPermission = vi.fn().mockReturnValue(true)
+
+    const result = await resolveRouteGuard(
+      routeOf({
+        name: ROUTE_NAMES.inventoryAlerts,
+        fullPath: '/inventory/alerts',
+        meta: { permission: 'inventory:read' },
+      }),
+      {
+        token: 'token',
+        user: { permissions: ['inventory:read'] },
+        hasPermission,
+        restoreSession: vi.fn(),
+      },
+    )
+
+    expect(hasPermission).toHaveBeenCalledWith('inventory:read')
+    expect(result).toBe(true)
+  })
 })

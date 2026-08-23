@@ -79,3 +79,16 @@ export const STOCKTAKE_STATUS_TAG_TYPE: Record<
   approved: 'success',
   cancelled: 'info',
 }
+
+export const INVENTORY_ALERT_STATUS_LABEL: Record<string, string> = {
+  open: '预警中',
+  cleared: '已解除',
+}
+
+export const INVENTORY_ALERT_STATUS_TAG_TYPE: Record<
+  string,
+  'info' | 'warning' | 'success' | 'primary' | 'danger'
+> = {
+  open: 'danger',
+  cleared: 'success',
+}

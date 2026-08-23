@@ -74,6 +74,12 @@ export const SIDE_MENU: SideMenuEntry[] = [
         path: '/inventory/ledgers',
         permission: 'inventory:read',
       },
+      {
+        kind: 'item',
+        title: '库存预警',
+        path: '/inventory/alerts',
+        permission: 'inventory:read',
+      },
     ],
   },
 ]

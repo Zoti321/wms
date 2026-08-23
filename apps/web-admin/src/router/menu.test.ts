@@ -68,3 +68,41 @@ describe('SIDE_MENU outbound entry', () => {
     expect(hasPermission(['outbound:read'], 'outbound:read')).toBe(true)
   })
 })
+
+describe('SIDE_MENU inventory alerts entry', () => {
+  it('includes inventory alerts under inventory group', () => {
+    const inventoryGroup = SIDE_MENU.find(
+      (entry) => entry.kind === 'group' && entry.title === '库存',
+    )
+    expect(inventoryGroup?.kind).toBe('group')
+    if (inventoryGroup?.kind !== 'group') {
+      return
+    }
+    const alerts = inventoryGroup.children.find((child) => child.path === '/inventory/alerts')
+    expect(alerts).toMatchObject({
+      kind: 'item',
+      title: '库存预警',
+      path: '/inventory/alerts',
+      permission: 'inventory:read',
+    })
+  })
+
+  it('hides inventory alerts when inventory:read is missing', () => {
+    setActivePinia(createPinia())
+    const auth = useAuthStore()
+    auth.$patch({
+      user: { id: 1, username: 'viewer', role_code: 'viewer', permissions: ['inbound:read'] },
+    })
+
+    const inventoryGroup = SIDE_MENU.find(
+      (entry) => entry.kind === 'group' && entry.title === '库存',
+    )
+    if (inventoryGroup?.kind !== 'group') {
+      throw new Error('inventory group missing')
+    }
+    const visibleChildren = inventoryGroup.children.filter(
+      (child) => !child.permission || auth.hasPermission(child.permission),
+    )
+    expect(visibleChildren.some((child) => child.path === '/inventory/alerts')).toBe(false)
+  })
+})

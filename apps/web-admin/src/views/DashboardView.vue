@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { listInventoryAlerts } from '@/api/inventories'
 import { ROUTE_NAMES } from '@/router/routes'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -9,6 +10,8 @@ import { useAuthStore } from '@/stores/auth'
 const auth = useAuthStore()
 const app = useAppStore()
 const router = useRouter()
+
+const openAlertCount = ref<number | null>(null)
 
 const shortcuts = computed(() => {
   const items: { title: string; desc: string; route: string; permission?: string }[] = [
@@ -48,6 +51,12 @@ const shortcuts = computed(() => {
       route: ROUTE_NAMES.inventoryBalances,
       permission: 'inventory:read',
     },
+    {
+      title: '库存预警',
+      desc: '查看低库存预警',
+      route: ROUTE_NAMES.inventoryAlerts,
+      permission: 'inventory:read',
+    },
   ]
   return items.filter((item) => !item.permission || auth.hasPermission(item.permission))
 })
@@ -73,9 +82,34 @@ function goCountingStocktakes(): void {
   })
 }
 
+function goInventoryAlerts(): void {
+  void router.push({ name: ROUTE_NAMES.inventoryAlerts })
+}
+
 function go(name: string): void {
   void router.push({ name })
 }
+
+async function loadOpenAlertCount(): Promise<void> {
+  if (!auth.hasPermission('inventory:read') || app.warehouseId == null) {
+    openAlertCount.value = null
+    return
+  }
+  try {
+    const page = await listInventoryAlerts({
+      warehouse_id: app.warehouseId,
+      page: 1,
+      page_size: 1,
+    })
+    openAlertCount.value = page.total
+  } catch {
+    openAlertCount.value = null
+  }
+}
+
+onMounted(() => {
+  void loadOpenAlertCount()
+})
 </script>
 
 <template>
@@ -102,7 +136,8 @@ function go(name: string): void {
       v-if="
         auth.hasPermission('inbound:read') ||
         auth.hasPermission('outbound:read') ||
-        auth.hasPermission('stocktake:read')
+        auth.hasPermission('stocktake:read') ||
+        (auth.hasPermission('inventory:read') && openAlertCount != null && openAlertCount > 0)
       "
       class="todo-row"
     >
@@ -130,6 +165,14 @@ function go(name: string): void {
         @click="goCountingStocktakes"
       >
         进行中盘点
+      </el-button>
+      <el-button
+        v-if="auth.hasPermission('inventory:read') && openAlertCount != null && openAlertCount > 0"
+        link
+        type="danger"
+        @click="goInventoryAlerts"
+      >
+        低库存预警 ({{ openAlertCount }})
       </el-button>
     </div>
 

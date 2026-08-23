@@ -14,6 +14,7 @@ export const ROUTE_NAMES = {
   outboundDetail: 'outbound-detail',
   inventoryBalances: 'inventory-balances',
   inventoryLedgers: 'inventory-ledgers',
+  inventoryAlerts: 'inventory-alerts',
   stocktakeList: 'stocktake-list',
   stocktakeCreate: 'stocktake-create',
   stocktakeDetail: 'stocktake-detail',
@@ -169,6 +170,15 @@ export const appRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/inventory/InventoryLedgerView.vue'),
         meta: {
           title: '库存流水',
+          permission: 'inventory:read',
+        },
+      },
+      {
+        path: 'inventory/alerts',
+        name: ROUTE_NAMES.inventoryAlerts,
+        component: () => import('@/views/inventory/InventoryAlertView.vue'),
+        meta: {
+          title: '库存预警',
           permission: 'inventory:read',
         },
       },
