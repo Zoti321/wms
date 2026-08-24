@@ -1,6 +1,6 @@
 name: wms-api UAT gate
 
-# 发版/上线门禁：跑 tests/uat。日常 PR 仍走 wms-api-test.yml（不含 UAT）。
+# 发版/上线门禁：对 staging 等已部署实例重跑 tests/uat（本地 PR CI 已含 UAT）。
 on:
   workflow_dispatch:
     inputs:
@@ -71,4 +71,4 @@ jobs:
           else
             echo "- Target: local ASGI TestClient + MySQL 8 service" >> "$GITHUB_STEP_SUMMARY"
           fi
-          echo "- Next: complete manual role sign-off in \`docs/uat/backend-signoff.md\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Gate: automated UAT only (see \`docs/uat/uat-coverage.md\`)" >> "$GITHUB_STEP_SUMMARY"

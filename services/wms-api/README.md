@@ -79,15 +79,14 @@ UPDATE users SET password_hash = '<新哈希>' WHERE username = 'admin';
 uv run pytest
 ```
 
-发版/上线前另跑后端 UAT（独立套件，日常 PR 不收集）：
+发版/上线前 UAT（与 PR CI 同一剧本；也可在 CI 中自动跑）：
 
 ```bash
-uv run pytest tests/uat
+uv run pytest tests/uat -v --fail-on-skipped
 ```
 
 说明、staging 前提（`UAT_BASE_URL`）与观测缺口见 [`tests/uat/README.md`](./tests/uat/README.md)。  
-发版 UAT 门禁 CI：[`.github/workflows/wms-api-uat.yml`](../../.github/workflows/wms-api-uat.yml)（手动触发）。  
-人工抽查与 API 步骤：[`docs/uat/backend-signoff.md`](../../docs/uat/backend-signoff.md)；staging 指南：[`docs/uat/staging-uat.md`](../../docs/uat/staging-uat.md)。
+需求 ↔ 用例追溯：[`docs/uat/uat-coverage.md`](../../docs/uat/uat-coverage.md)；staging 指南：[`docs/uat/staging-uat.md`](../../docs/uat/staging-uat.md)。
 
 若本机无 MySQL：集成测试会 `pytest.skip`（不注入假登录旁路）。
 
@@ -96,8 +95,7 @@ uv run pytest tests/uat
 PR 与 push 到 `main` 时，当变更涉及 `services/wms-api/**` 或 workflow 自身，会自动运行 [`.github/workflows/wms-api-test.yml`](../../.github/workflows/wms-api-test.yml)：
 
 1. 启动 MySQL 8.0 服务容器（凭据与 `docker-compose.yml` 一致：`wms`/`wms`，库 `wms`）
-2. `uv sync --frozen`（缓存依赖）→ `uv run pytest -v --tb=short --ignore=tests/uat --fail-on-skipped`
+2. `uv sync --frozen`（缓存依赖）→ 集成测 → **UAT 套件**（均 `--fail-on-skipped`）
 3. 迁移由测试 `conftest` 会话夹具执行 `alembic upgrade head`（与本地一致）
-4. 日常 CI **不收集** `tests/uat`（与本地默认 `pytest` 相同）
 
-**发版/上线前**在 GitHub Actions 手动运行 [`.github/workflows/wms-api-uat.yml`](../../.github/workflows/wms-api-uat.yml)，或本地 `uv run pytest tests/uat`。可选 workflow 输入 `uat_base_url` 对 staging 重跑；详见 [`docs/uat/staging-uat.md`](../../docs/uat/staging-uat.md)。
+对 **staging** 等已部署实例，可在 GitHub Actions 手动运行 [`.github/workflows/wms-api-uat.yml`](../../.github/workflows/wms-api-uat.yml) 并填写 `uat_base_url`；详见 [`docs/uat/staging-uat.md`](../../docs/uat/staging-uat.md)。

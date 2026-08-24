@@ -18,7 +18,7 @@ defaults:
 jobs:
   pytest:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     services:
       mysql:
@@ -60,3 +60,6 @@ jobs:
 
       - name: Run integration tests
         run: uv run pytest -v --tb=short --ignore=tests/uat --fail-on-skipped
+
+      - name: Run UAT suite
+        run: uv run pytest tests/uat -v --tb=short --fail-on-skipped -m uat
