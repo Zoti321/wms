@@ -1,4 +1,6 @@
 /// <reference types="vite/client" />
+/// <reference types="@dcloudio/types" />
+/// <reference types="@uni-helper/uni-app-types" />
 
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string

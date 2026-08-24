@@ -1,8 +1,10 @@
 # Design System Master File
 
-> **LOGIC:** When building a specific page, first check `design-system/pages/[page-name].md`.
+> **LOGIC:** When building a specific page, first check `design-system/wms/pages/[page-name].md`.
 > If that file exists, its rules **override** this Master file.
 > If not, strictly follow the rules below.
+>
+> **小程序作业端**使用 [`MASTER-MINI.md`](./MASTER-MINI.md) 与同目录 `pages/*.md`，勿直接套用本文件的 Element Plus / 表格密度规范。
 
 ---
 

@@ -1,6 +1,9 @@
 # uni-app 小程序（pnpm workspace 包 `mini-program`）
 
-仓管员上架/拣货作业面，调用与 web-admin 相同的 FastAPI API。
+仓管员**上架 / 拣货**作业面，调用与 web-admin 相同的 FastAPI API。
+
+**开发文档（权威）**：[`docs/mini-program/README.md`](../../docs/mini-program/README.md)  
+**UI 设计**：[`design-system/wms/MASTER-MINI.md`](../../design-system/wms/MASTER-MINI.md) + [`design-system/wms/pages/`](../../design-system/wms/pages/)
 
 ## 前置
 
@@ -38,6 +41,20 @@ pnpm test:mini-program
 pnpm build:mini-program:weixin
 ```
 
+## MVP 页面（待实现）
+
+| 页面 | 说明 |
+|---|---|
+| 登录 | 仅 `operator` 仓管员 |
+| Tab·待办 | 待上架 / 待拣货单据 |
+| Tab·我的 | 身份、仓库、退出 |
+| 入库详情 → 上架 | 按行上架 |
+| 出库详情 → 拣货 | 按行实扣 |
+
+路由与 API 映射见 [`docs/mini-program/pages.md`](../../docs/mini-program/pages.md)。
+
 ## 说明
 
 使用 uni-app CLI（Vite），**无需 HBuilderX**。类型检查与单元测试与 web-admin 一样在 Cursor/VSCode 中完成。
+
+编辑器需安装 [Vue - Official](https://marketplace.visualstudio.com/items?itemName=Vue.volar) 扩展；修改 `tsconfig.json` 后执行「TypeScript: Restart TS Server」刷新类型提示。
