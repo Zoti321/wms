@@ -41,7 +41,7 @@ pnpm test:mini-program
 pnpm build:mini-program:weixin
 ```
 
-## MVP 页面（待实现）
+## MVP 页面
 
 | 页面 | 说明 |
 |---|---|
@@ -49,9 +49,9 @@ pnpm build:mini-program:weixin
 | Tab·待办 | 待上架 / 待拣货单据 |
 | Tab·我的 | 身份、仓库、退出 |
 | 入库详情 → 上架 | 按行上架 |
-| 出库详情 → 拣货 | 按行实扣 |
+| 出库详情 → 拣货 | 按行实扣（库位只读=审核分配） |
 
-路由与 API 映射见 [`docs/mini-program/pages.md`](../../docs/mini-program/pages.md)。
+路由与 API 映射见 [`docs/mini-program/pages.md`](../../docs/mini-program/pages.md)。Spec：[#32](https://github.com/Zoti321/wms/issues/32)。
 
 ## 说明
 

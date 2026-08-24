@@ -59,7 +59,7 @@ interface TaskCard {
 }
 ```
 
-按 `updated_at` **降序**排序。
+按列表字段时间 **降序**排序（后端列表当前为 `created_at`；客户端 TaskCard 字段名 `updatedAt` 承载该值）。
 
 ### 筛选
 
@@ -135,7 +135,9 @@ Body: `{ line_id, location_id, qty }` + Header `Idempotency-Key`
 
 与上架对称；API 为 `POST /outbound-orders/{orderId}/pick`。
 
-剩余可拣 = 已分配量 − 已拣量（出库行在 MVP 由审核分配指定库位逻辑；拣货时选 **实拣库位** `location_id`）。
+剩余可拣 = 已分配量 − 已拣量。
+
+**实拣库位（硬约束）**：必须与出库行审核分配的 `location_id` 一致；UI **只读展示**分配库位，提交固定传该 id。后端拒绝「拣货库位与审核分配库位不一致」。
 
 ## Tab·我的
 
