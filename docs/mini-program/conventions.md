@@ -49,8 +49,9 @@
 | 类型 | 范围 |
 |---|---|
 | 单元 | `api/client` 信封解析、幂等键、labels |
-| 类型 | `pnpm typecheck:mini-program` |
-| E2E | 二期；M5 以前依赖后端 UAT + 人工微信开发者工具走查 |
+| 类型 | `pnpm typecheck:mini-program`（含 `openapi.d.ts`） |
+| CI | `mini-program-test.yml`：typecheck + unit test |
+| E2E | 二期；M5 依赖后端 UAT + 人工微信开发者工具走查（清单见 `docs/development.html` §13.5） |
 
 ## Agent 加载顺序
 

@@ -39,7 +39,14 @@ pnpm dev:mini-program:weixin
 pnpm typecheck:mini-program
 pnpm test:mini-program
 pnpm build:mini-program:weixin
+
+# API 契约变更后：同步 snapshot 并重新生成类型
+pnpm --filter web-admin generate:openapi-snapshot
+cp web-admin/openapi.snapshot.json mini-program/openapi.snapshot.json
+pnpm --filter mini-program generate:api
 ```
+
+CI：变更 `apps/mini-program/**` 等路径时，GitHub Actions `mini-program-test.yml` 会跑 typecheck + unit test（与本地上述命令一致）。
 
 ## MVP 页面
 

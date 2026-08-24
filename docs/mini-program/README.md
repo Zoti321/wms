@@ -38,5 +38,5 @@
 
 - 本地开发：[`apps/mini-program/README.md`](../../apps/mini-program/README.md)  
 - Web 后台对标：[`apps/web-admin/README.md`](../../apps/web-admin/README.md)  
-- OpenAPI 快照：`apps/web-admin/openapi.snapshot.json`  
+- OpenAPI 快照：`apps/mini-program/openapi.snapshot.json`（与 web-admin 同步；生成见 [api-client.md](./api-client.md)）  
 - 权限矩阵：`services/wms-api/app/platform/domain/permissions.py`

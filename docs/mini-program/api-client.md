@@ -38,18 +38,19 @@ interface ApiEnvelope<T> {
 小程序**独立**维护类型，不 import web-admin 源码。
 
 ```bash
-# 在 apps/ 目录（与 web-admin 共用快照）
+# 在 apps/ 目录：先刷新 web-admin 快照，再同步到小程序并生成类型
 pnpm --filter web-admin generate:openapi-snapshot
-# 复制或软链 snapshot 到 mini-program 后：
-pnpm --filter mini-program generate:api   # 待 package.json 补充 script 时
+cp web-admin/openapi.snapshot.json mini-program/openapi.snapshot.json
+pnpm --filter mini-program generate:api
 ```
 
-M5 实施前可手动复制 `apps/web-admin/openapi.snapshot.json`，用 `openapi-typescript` 生成 `src/types/openapi.d.ts`。
+产物：`apps/mini-program/src/types/openapi.d.ts`（纳入 git；`pnpm --filter mini-program typecheck` 会消费）。  
+`src/types/api.ts` 对 OpenAPI 已建模的请求体（`LoginRequest` / `PutawayRequest` / `PickRequest`）做薄 re-export；列表/详情等 data 载荷因后端未声明 `response_model`，仍手写并对齐 web-admin。
 
 作业端 MVP 实际用到的 schema：
 
-- `LoginRequest`、`PutawayRequest`、`PickRequest`
-- 列表/详情 order 类型（与 web `types/api.ts` 字段对齐）
+- `LoginRequest`、`PutawayRequest`、`PickRequest`（来自生成类型）
+- 列表/详情 order 类型（手写，与 web `types/api.ts` 字段对齐）
 
 ## 请求封装要点
 

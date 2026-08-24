@@ -349,7 +349,7 @@ CREATE TABLE inventory_ledger (
           <tr><td>M2 入库闭环</td><td>已完成</td><td>入库单 + 部分上架 + 库存增账 + 流水（<code>0003_m2</code>）</td></tr>
           <tr><td>M3 出库闭环</td><td>已完成</td><td>分配预留 + 拣货实扣 + 取消释放 + 乐观锁防超卖（<code>0004_m3</code>）</td></tr>
           <tr><td>M4 盘点报表</td><td>已完成</td><td>盘点锁、盈亏调账、库存预警、日报 JSON/CSV、操作日志（<code>0005_m4</code>–<code>0007_m6</code>）</td></tr>
-          <tr><td>M5 上线</td><td>进行中</td><td>UAT 已纳入 PR/main CI；压测、小程序作业面待完成</td></tr>
+          <tr><td>M5 上线</td><td>进行中</td><td>UAT 已纳入 PR/main CI；小程序作业面主路径已交付、typecheck/test 门禁已纳入；压测仍待</td></tr>
         </tbody>
       </table>
 
@@ -378,6 +378,7 @@ CREATE TABLE inventory_ledger (
           <tr><td>日常集成测</td><td><code>services/wms-api/tests/</code>（不含 <code>uat/</code>）</td><td>PR 回归</td><td>120 用例；需可达 MySQL</td></tr>
           <tr><td>后端 UAT</td><td><code>services/wms-api/tests/uat/</code></td><td>发版/上线门禁（纯自动化）</td><td>24 用例；PR/main CI 自动跑；staging 可 <code>UAT_BASE_URL</code> 重跑</td></tr>
           <tr><td>Web Admin E2E</td><td><code>apps/web-admin/e2e/</code></td><td>前端核心路径（mock API）</td><td>PR/main CI 自动跑 Playwright</td></tr>
+          <tr><td>Mini-program</td><td><code>apps/mini-program/</code></td><td>作业端 typecheck + Vitest</td><td>PR/main CI：<code>mini-program-test.yml</code>（path filter）</td></tr>
           <tr><td>需求追溯</td><td><code>docs/uat/uat-coverage.md</code></td><td>需求验收 ↔ UAT 用例对照</td><td>无人工签字</td></tr>
         </tbody>
       </table>
@@ -395,7 +396,7 @@ CREATE TABLE inventory_ledger (
           <tr><th>缺口</th><th>说明</th></tr>
         </thead>
         <tbody>
-          <tr><td>CI 流水线</td><td>PR/main：<code>wms-api-test.yml</code>（MySQL 8 + 集成测 + UAT）；staging：<code>wms-api-uat.yml</code>（手动 + 可选 <code>uat_base_url</code>）；前端：<code>web-admin-test.yml</code></td></tr>
+          <tr><td>CI 流水线</td><td>PR/main：<code>wms-api-test.yml</code>（MySQL 8 + 集成测 + UAT）；staging：<code>wms-api-uat.yml</code>（手动 + 可选 <code>uat_base_url</code>）；前端：<code>web-admin-test.yml</code>、<code>mini-program-test.yml</code>（typecheck + unit test）</td></tr>
           <tr><td>健康检查</td><td><code>GET /health</code> 探测 MySQL（<code>SELECT 1</code>）；失败 HTTP 503 + <code>degraded</code>；可选 <code>HEALTH_CHECK_DB=false</code></td></tr>
           <tr><td>性能/压测</td><td>仅集成测覆盖轻量「并发分配不超卖」；无 P95 / 日单据量压测</td></tr>
           <tr><td>备份恢复演练</td><td><a href="runbooks/mysql-backup-restore.md">Runbook</a> 已文档化；季度演练仍建议保留（运维流程，非业务 UAT）</td></tr>
@@ -421,6 +422,20 @@ CREATE TABLE inventory_ledger (
 
       <h2 id="d13">13. 小程序作业端（M5）</h2>
       <p>仓管员<strong>上架 / 拣货</strong>作业面，与 web-admin 共用 FastAPI。业务规则见 <a href="requirements/inbound.md">inbound.md</a>、<a href="requirements/outbound.md">outbound.md</a>；实现细则见 <code>docs/mini-program/</code>；UI 见 <code>design-system/wms/MASTER-MINI.md</code> 与各页 <code>pages/*.md</code>。</p>
+
+      <h3>13.0 进度（权威）</h3>
+      <table>
+        <thead>
+          <tr><th>项</th><th>状态</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>功能主路径（登录 / 待办 / 入库上架 / 出库拣货 / 我的）</td><td>已交付（源码 + Vitest；见 #32）</td></tr>
+          <tr><td>OpenAPI 类型</td><td>已落地：<code>generate:api</code> → <code>src/types/openapi.d.ts</code>，参与 typecheck</td></tr>
+          <tr><td>CI 门禁</td><td>已纳入：<code>mini-program-test.yml</code>（path filter → typecheck + unit test）</td></tr>
+          <tr><td>微信开发者工具人工走查</td><td>见 §13.5 清单；关闭 #33 前须由人勾选必过项</td></tr>
+        </tbody>
+      </table>
+      <p>明确不做（不阻塞 M5 作业面完成判据）：uni-ui/组件抽取、待办 <code>pendingLineCount</code>、PDA 扫码、离线、Refresh Token、微信 E2E 自动化等（见 #33 Out of Scope）。</p>
 
       <h3>13.1 定位与范围</h3>
       <table>
@@ -469,8 +484,21 @@ CREATE TABLE inventory_ledger (
         </tbody>
       </table>
 
+      <h3>13.5 人工走查清单（微信开发者工具，必过）</h3>
+      <p>基础库 ≥ 2.19.2；对真实或 UAT API。Agent 不能代替勾选；全部必过项通过后关闭 #33。</p>
+      <ul>
+        <li>☐ operator 登录成功并进入待办</li>
+        <li>☐ 非 operator 见无权空态且可回到登录</li>
+        <li>☐ 待办展示待上架入库与待拣货出库；筛选全部/入库/出库可用；下拉刷新可用</li>
+        <li>☐ 入库详情 → 上架：选库位、提交数量、成功返回详情且数量更新</li>
+        <li>☐ 出库详情 → 拣货：分配库位只读、提交实扣、成功返回详情且数量更新</li>
+        <li>☐ 我的展示用户/角色/仓库只读信息；退出回到登录</li>
+        <li>☐ 写操作失败（如盘点锁或校验错误）有提示且不导致无法重试的空白态</li>
+      </ul>
+      <p>（可选）☐ 网络断开提示、☐ 幂等重试不重复记账——有环境则测，不阻塞关闭。</p>
+
       <div class="callout">
-        领域核心主路径（建仓 → 入库上架 → 库存可见 → 出库分配/实扣 → 流水按行可查）已在 API 与 UAT 中验收。返回 <a href="index.html">总览</a> · <a href="domain.html">领域模型</a> · <a href="requirements.html">需求文档</a> · <a href="mini-program/README.md">小程序开发文档</a>。
+        领域核心主路径（建仓 → 入库上架 → 库存可见 → 出库分配/实扣 → 流水按行可查）已在 API 与 UAT 中验收；小程序作业面主路径与工程门禁见 §13.0。返回 <a href="index.html">总览</a> · <a href="domain.html">领域模型</a> · <a href="requirements.html">需求文档</a> · <a href="mini-program/README.md">小程序开发文档</a>。
       </div>
     </article>
   </div>

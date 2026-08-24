@@ -1,0 +1,52 @@
+name: mini-program tests
+
+on:
+  pull_request:
+    paths:
+      - "apps/mini-program/**"
+      - "apps/pnpm-lock.yaml"
+      - "apps/package.json"
+      - "apps/pnpm-workspace.yaml"
+      - ".github/workflows/mini-program-test.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/mini-program/**"
+      - "apps/pnpm-lock.yaml"
+      - "apps/package.json"
+      - "apps/pnpm-workspace.yaml"
+      - ".github/workflows/mini-program-test.yml"
+
+defaults:
+  run:
+    working-directory: apps
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.22.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/.nvmrc
+          cache: pnpm
+          cache-dependency-path: apps/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter mini-program typecheck
+
+      - name: Unit tests
+        run: pnpm --filter mini-program test

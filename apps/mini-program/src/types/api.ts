@@ -1,3 +1,5 @@
+import type { components } from '@/types/openapi'
+
 export interface ApiEnvelope<T = unknown> {
   code: number
   message: string
@@ -24,23 +26,15 @@ export interface Paginated<T> {
   page_size: number
 }
 
-export interface LoginRequest {
-  username: string
-  password: string
-}
+/** OpenAPI 已建模的请求体。 */
+export type LoginRequest = components['schemas']['LoginRequest']
+export type PutawayRequest = components['schemas']['PutawayRequest']
+export type PickRequest = components['schemas']['PickRequest']
 
-export interface PutawayRequest {
-  line_id: number
-  location_id: number
-  qty: string
-}
-
-export interface PickRequest {
-  line_id: number
-  location_id: number
-  qty: string
-}
-
+/**
+ * 登录/业务 data 载荷。FastAPI 路由以 ok(dict) 返回且未声明 response_model，
+ * OpenAPI 中响应多为 unknown；字段对齐后端 *_to_dict。
+ */
 export interface TokenData {
   access_token: string
   token_type: string
