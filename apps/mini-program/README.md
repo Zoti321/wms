@@ -4,7 +4,7 @@
 
 ## 前置
 
-- Node ≥ 20.19（见 `apps/.nvmrc`）
+- Node 22（见 `apps/.nvmrc`）
 - [微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html)（预览/调试/上传）
 
 ## 开发
