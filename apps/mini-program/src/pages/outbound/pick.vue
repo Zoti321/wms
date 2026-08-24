@@ -10,6 +10,7 @@ import type { OutboundOrder, OutboundOrderLine } from '@/types/api'
 import { errorMessage } from '@/utils/errorMessage'
 import { nextIdempotencyKey } from '@/utils/idempotency'
 import { isPositiveQty, remainQty } from '@/utils/qty'
+import { reportJobConflict } from '@/utils/reportJobConflict'
 import { requireOperatorSession } from '@/utils/sessionGate'
 
 const orderId = ref(0)
@@ -120,8 +121,7 @@ async function onSubmit(): Promise<void> {
       uni.navigateBack()
     }, 400)
   } catch (error) {
-    formError.value = errorMessage(error, '拣货失败')
-    uni.showToast({ title: formError.value, icon: 'none' })
+    formError.value = reportJobConflict(error, '拣货失败')
   } finally {
     submitting.value = false
   }

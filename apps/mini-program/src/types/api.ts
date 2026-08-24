@@ -62,12 +62,16 @@ export interface Sku {
   status: number
 }
 
+export type SpaceStatus = 'idle' | 'occupied' | 'frozen'
+
 export interface Location {
   id: number
   warehouse_id: number
   location_code: string
   zone: string | null
   status: number
+  /** 库位状态：空闲/占用/冻结；≠ 盘点锁、≠ 冻结数量 */
+  space_status?: SpaceStatus
 }
 
 export type InboundStatus =

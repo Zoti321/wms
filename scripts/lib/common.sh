@@ -18,13 +18,26 @@ require_command() {
 }
 
 _run_python() {
+  if command -v uv >/dev/null 2>&1; then
+    uv run python "$@"
+    return 0
+  fi
   if command -v python >/dev/null 2>&1; then
     python "$@"
     return 0
   fi
-  if command -v py >/dev/null 2>&1; then
-    py -3 "$@"
+  if command -v python3 >/dev/null 2>&1; then
+    python3 "$@"
     return 0
+  fi
+  if command -v py >/dev/null 2>&1; then
+    local ver
+    for ver in 3.12 3.11 3.10 3.9 3.8 3; do
+      if py "-${ver}" -c "import sys" >/dev/null 2>&1; then
+        py "-${ver}" "$@"
+        return 0
+      fi
+    done
   fi
   return 1
 }

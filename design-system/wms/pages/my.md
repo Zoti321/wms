@@ -33,10 +33,11 @@
 
 | 项 | 来源 |
 |---|---|
+| 头像占位 | 圆形 + 用户名首字（不接微信头像） |
 | 用户名 | `/auth/me`.username |
 | 角色 | `ROLE_CODE_LABEL[role_code]` |
 | 仓库 | MVP 单仓：种子仓名称，只读 |
-| 版本 | `manifest.json` version 或常量 |
+| 版本 | `APP_VERSION` 常量（与 `manifest.json` `versionName` 对齐） |
 
 ## 交互
 

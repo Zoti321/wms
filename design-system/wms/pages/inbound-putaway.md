@@ -47,23 +47,24 @@
 
 ## 库位候选行
 
-- 展示：库位编码（`.font-data`）+ 空间状态（空闲/占用）
-- 选中：Primary 边框 + 浅蓝底
-- 盘点锁库位：若 API 返回则不可选（MVP 由提交时 409 兜底）
+- 展示：库位编码（`.font-data`）+ 库位状态（空闲/占用/冻结）
+- `frozen`：**不可选**
+- 选中：Primary 边框 + 浅蓝底（实现可用禁用态区分冻结）
+- 盘点锁：列表无锁字段；**提交失败**专用 Modal（标题「无法作业」+ 后端 message），≠ 库位状态冻结
 
 ## 交互
 
 1. 进入页：生成新 `Idempotency-Key`
 2. 点确认：loading，POST putaway
 3. 成功：toast + navigateBack
-4. 失败：toast / 顶部错误条，保留输入
+4. 失败：盘点锁 → Modal；其它 → toast / 顶部错误条，保留输入
 
 ## 错误文案
 
 | 情况 | 展示 |
 |---|---|
-| 409 盘点锁 | Modal，强调「该库位盘点锁定，无法上架」 |
-| 其他 409/400 | 展示 `message` |
+| 盘点锁（message 含「盘点锁定」） | Modal 标题「无法作业」，content 为后端 message |
+| 其他 409/400 | 展示 `message`（Toast / 顶栏） |
 
 ## API
 

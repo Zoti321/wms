@@ -55,11 +55,13 @@ interface TaskCard {
   status: string
   orderType: string
   updatedAt: string
-  pendingLineCount: number  // 客户端从详情缓存或列表字段计算
+  pendingLineCount?: number  // 列表先渲染；再有界并发拉详情补全
 }
 ```
 
 按列表字段时间 **降序**排序（后端列表当前为 `created_at`；客户端 TaskCard 字段名 `updatedAt` 承载该值）。
+
+**已实现（#34）**：列表合并后立即展示；后台 concurrency=5 拉详情计算行数——入库 `planned−putaway>0`、出库 `allocated−picked>0`；单卡失败则不展示该卡行数。首屏无数据且 loading 时 Skeleton 2～3 卡；`onShow` 静默刷新不闪骨架。
 
 ### 筛选
 
@@ -125,9 +127,11 @@ Body: `{ line_id, location_id, qty }` + Header `Idempotency-Key`
 
 | 原因 | UX |
 |---|---|
-| 盘点锁 | Toast/Modal 展示 message，禁止提交 |
+| 盘点锁 | Modal 标题「无法作业」，content 为后端 message（含「盘点锁定」）；仅确认 |
 | 校验失败 | 字段旁或顶部展示 message |
 | 网络 | Toast + 保留表单 |
+
+**已实现（#34）**：上架库位候选展示 `space_status`（空闲/占用/冻结）；`frozen` 不可选。盘点锁不在候选预标，提交失败走专用 Modal（与拣货对称）。
 
 ## 拣货执行页
 
@@ -139,11 +143,15 @@ Body: `{ line_id, location_id, qty }` + Header `Idempotency-Key`
 
 **实拣库位（硬约束）**：必须与出库行审核分配的 `location_id` 一致；UI **只读展示**分配库位，提交固定传该 id。后端拒绝「拣货库位与审核分配库位不一致」。
 
+**已实现（#34）**：盘点锁冲突与上架相同——Modal「无法作业」+ 后端 message；其它错误 Toast/顶栏。
+
 ## Tab·我的
 
 见 [my.md](../../design-system/wms/pages/my.md)。
 
 数据：`/auth/me` + 仓库名（`GET /warehouses/{id}` 或登录时缓存种子仓名）。
+
+**已实现（#34）**：头像占位（圆 + 用户名首字）、版本号（与 `manifest` versionName 对齐的常量）、退出前 `showModal` 确认。
 
 ## 空态
 

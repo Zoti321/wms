@@ -1,3 +1,5 @@
+import { remainQty } from '@/utils/qty'
+
 export type TaskKind = 'inbound' | 'outbound'
 export type TaskFilter = 'all' | TaskKind
 
@@ -46,4 +48,77 @@ export function filterTodoTasks(cards: TaskCard[], filter: TaskFilter): TaskCard
     return cards
   }
   return cards.filter((card) => card.kind === filter)
+}
+
+export function countInboundPendingLines(
+  lines: Array<{ planned_qty: string; putaway_qty: string }>,
+): number {
+  return lines.filter((line) => Number(remainQty(line.planned_qty, line.putaway_qty)) > 0).length
+}
+
+export function countOutboundPendingLines(
+  lines: Array<{ allocated_qty: string; picked_qty: string }>,
+): number {
+  return lines.filter((line) => Number(remainQty(line.allocated_qty, line.picked_qty)) > 0)
+    .length
+}
+
+export function mergePendingLineCount(
+  card: TaskCard,
+  pendingLineCount: number | undefined,
+): TaskCard {
+  if (pendingLineCount === undefined) {
+    const { pendingLineCount: _drop, ...rest } = card
+    return rest
+  }
+  return { ...card, pendingLineCount }
+}
+
+export interface EnrichPendingFetchers {
+  fetchInbound: (orderId: number) => Promise<{
+    lines: Array<{ planned_qty: string; putaway_qty: string }>
+  }>
+  fetchOutbound: (orderId: number) => Promise<{
+    lines: Array<{ allocated_qty: string; picked_qty: string }>
+  }>
+  concurrency?: number
+}
+
+/** 有界并发拉详情补全 pendingLineCount；单卡失败则该卡不带行数。 */
+export async function enrichPendingLineCounts(
+  cards: TaskCard[],
+  options: EnrichPendingFetchers,
+): Promise<TaskCard[]> {
+  const concurrency = Math.max(1, options.concurrency ?? 5)
+  const results = cards.map((card) => ({ ...card }))
+  let nextIndex = 0
+
+  async function worker(): Promise<void> {
+    while (nextIndex < cards.length) {
+      const index = nextIndex
+      nextIndex += 1
+      const card = cards[index]
+      try {
+        if (card.kind === 'inbound') {
+          const order = await options.fetchInbound(card.orderId)
+          results[index] = mergePendingLineCount(
+            results[index],
+            countInboundPendingLines(order.lines),
+          )
+        } else {
+          const order = await options.fetchOutbound(card.orderId)
+          results[index] = mergePendingLineCount(
+            results[index],
+            countOutboundPendingLines(order.lines),
+          )
+        }
+      } catch {
+        results[index] = mergePendingLineCount(results[index], undefined)
+      }
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(concurrency, cards.length) }, () => worker())
+  await Promise.all(workers)
+  return results
 }

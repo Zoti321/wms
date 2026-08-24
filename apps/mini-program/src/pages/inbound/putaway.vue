@@ -9,7 +9,9 @@ import { MAX_LIST_PAGE_SIZE } from '@/constants/api'
 import type { InboundOrder, InboundOrderLine, Location } from '@/types/api'
 import { errorMessage } from '@/utils/errorMessage'
 import { nextIdempotencyKey } from '@/utils/idempotency'
+import { isLocationSelectable, spaceStatusLabel } from '@/utils/locationSpace'
 import { isPositiveQty, remainQty } from '@/utils/qty'
+import { reportJobConflict } from '@/utils/reportJobConflict'
 import { requireOperatorSession } from '@/utils/sessionGate'
 
 const orderId = ref(0)
@@ -101,6 +103,10 @@ async function searchLocations(): Promise<void> {
 }
 
 function selectLocation(loc: Location): void {
+  if (!isLocationSelectable(loc.space_status)) {
+    uni.showToast({ title: '该库位已冻结，不可上架', icon: 'none' })
+    return
+  }
   selectedLocation.value = loc
   locationKeyword.value = loc.location_code
   locations.value = []
@@ -153,8 +159,7 @@ async function onSubmit(): Promise<void> {
       uni.navigateBack()
     }, 400)
   } catch (error) {
-    formError.value = errorMessage(error, '上架失败')
-    uni.showToast({ title: formError.value, icon: 'none' })
+    formError.value = reportJobConflict(error, '上架失败')
   } finally {
     submitting.value = false
   }
@@ -210,9 +215,11 @@ onLoad(async (query) => {
         v-for="loc in locations"
         :key="loc.id"
         class="loc-item"
+        :class="{ disabled: !isLocationSelectable(loc.space_status) }"
         @click="selectLocation(loc)"
       >
         <text class="font-data">{{ loc.location_code }}</text>
+        <text class="muted loc-status">{{ spaceStatusLabel(loc.space_status) }}</text>
       </view>
     </view>
 
@@ -242,6 +249,17 @@ onLoad(async (query) => {
   min-height: 88rpx;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+
+  &.disabled {
+    opacity: 0.45;
+  }
+}
+
+.loc-status {
+  font-size: 24rpx;
+  flex-shrink: 0;
 }
 
 .stepper {
