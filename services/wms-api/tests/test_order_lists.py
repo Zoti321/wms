@@ -116,6 +116,141 @@ def test_inbound_list_filter_and_pagination(client, auth_headers) -> None:
     assert list_row["supplier_id"] == detail["supplier_id"]
 
 
+def _create_inbound_with(
+    client,
+    headers: dict[str, str],
+    masters: dict,
+    *,
+    order_no: str,
+    order_type: str = "purchase",
+) -> dict:
+    return data_ok(
+        client.post(
+            "/api/v1/inbound-orders",
+            headers=headers,
+            json={
+                "warehouse_id": masters["warehouse_id"],
+                "order_type": order_type,
+                "order_no": order_no,
+                "lines": [{"sku_id": masters["sku_id"], "planned_qty": "1.000"}],
+            },
+        )
+    )
+
+
+def _create_outbound_with(
+    client,
+    headers: dict[str, str],
+    masters: dict,
+    *,
+    order_no: str,
+    order_type: str = "sales",
+) -> dict:
+    return data_ok(
+        client.post(
+            "/api/v1/outbound-orders",
+            headers=headers,
+            json={
+                "warehouse_id": masters["warehouse_id"],
+                "order_type": order_type,
+                "order_no": order_no,
+                "lines": [{"sku_id": masters["sku_id"], "planned_qty": "1.000"}],
+            },
+        )
+    )
+
+
+def test_inbound_list_filter_by_order_no_and_type(client, auth_headers) -> None:
+    masters = seed_masters(client, auth_headers, prefix="LNO", with_location=False)
+    purchase = _create_inbound_with(
+        client,
+        auth_headers,
+        masters,
+        order_no="INB-FILTER-PUR-001",
+        order_type="purchase",
+    )
+    other = _create_inbound_with(
+        client,
+        auth_headers,
+        masters,
+        order_no="INB-FILTER-RET-002",
+        order_type="return",
+    )
+
+    by_no = data_ok(
+        _list_inbound(client, auth_headers, order_no="FILTER-PUR")
+    )
+    ids = {item["id"] for item in by_no["items"]}
+    assert purchase["id"] in ids
+    assert other["id"] not in ids
+    assert by_no["total"] >= 1
+
+    by_type = data_ok(
+        _list_inbound(
+            client,
+            auth_headers,
+            warehouse_id=masters["warehouse_id"],
+            order_type="return",
+        )
+    )
+    assert all(item["order_type"] == "return" for item in by_type["items"])
+    assert any(item["id"] == other["id"] for item in by_type["items"])
+    assert all(item["id"] != purchase["id"] for item in by_type["items"])
+
+    combined = data_ok(
+        _list_inbound(
+            client,
+            auth_headers,
+            order_no="FILTER-RET",
+            order_type="return",
+            status="draft",
+        )
+    )
+    assert len(combined["items"]) == 1
+    assert combined["items"][0]["id"] == other["id"]
+    assert combined["total"] == 1
+
+    assert _list_inbound(client, auth_headers, order_type="invalid").status_code == 400
+
+
+def test_outbound_list_filter_by_order_no_and_type(client, auth_headers) -> None:
+    masters = seed_masters(client, auth_headers, prefix="LNOU", with_location=False)
+    sales = _create_outbound_with(
+        client,
+        auth_headers,
+        masters,
+        order_no="OUT-FILTER-SAL-001",
+        order_type="sales",
+    )
+    material = _create_outbound_with(
+        client,
+        auth_headers,
+        masters,
+        order_no="OUT-FILTER-MAT-002",
+        order_type="material",
+    )
+
+    by_no = data_ok(
+        _list_outbound(client, auth_headers, order_no="FILTER-SAL")
+    )
+    ids = {item["id"] for item in by_no["items"]}
+    assert sales["id"] in ids
+    assert material["id"] not in ids
+
+    by_type = data_ok(
+        _list_outbound(
+            client,
+            auth_headers,
+            warehouse_id=masters["warehouse_id"],
+            order_type="material",
+        )
+    )
+    assert all(item["order_type"] == "material" for item in by_type["items"])
+    assert any(item["id"] == material["id"] for item in by_type["items"])
+
+    assert _list_outbound(client, auth_headers, order_type="invalid").status_code == 400
+
+
 def test_inbound_list_sorted_by_created_at_desc(client, auth_headers) -> None:
     masters = seed_masters(client, auth_headers, prefix="LIS", with_location=False)
     first = create_inbound(client, auth_headers, masters, "1.000")

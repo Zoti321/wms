@@ -121,6 +121,10 @@ def _ensure_platform_seeds(database_url: str) -> None:
         ("unit", "BOX", "箱", 2),
         ("inbound_order_type", "purchase", "采购入库", 1),
         ("inbound_order_type", "return", "退货入库", 2),
+        ("inbound_order_type", "other", "其他入库", 3),
+        ("outbound_order_type", "sales", "销售出库", 1),
+        ("outbound_order_type", "material", "领料出库", 2),
+        ("outbound_order_type", "other", "其他出库", 3),
         ("cancel_reason", "customer_cancel", "客户取消", 1),
         ("cancel_reason", "stock_shortage", "库存不足", 2),
     )

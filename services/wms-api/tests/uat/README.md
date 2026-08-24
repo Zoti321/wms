@@ -15,8 +15,7 @@
 uv run pytest tests/uat
 
 # staging / 已部署实例
-# PowerShell
-$env:UAT_BASE_URL="https://staging.example.com"
+export UAT_BASE_URL="https://staging.example.com"
 uv run pytest tests/uat
 ```
 
@@ -39,10 +38,10 @@ uv run pytest tests/uat
 
 ## 门禁
 
-- 发版/上线前：`uv run pytest tests/uat` 必须绿灯
-- 日常 PR：仍只跑 `uv run pytest`（不含本套件）
-- 自动化绿灯后，按 [签字清单](../../../docs/uat/backend-signoff.md) 由系统管理员、仓库主管、仓管员各抽查一条关键路径（含可执行 API 步骤）
-- 发版 CI：GitHub Actions **wms-api UAT gate**（见 [staging-uat.md](../../../docs/uat/staging-uat.md)）
+- 发版/上线前：`uv run pytest tests/uat` 必须绿灯（**无人工签字环节**）
+- PR / push `main`：与日常集成测一并跑（见 `.github/workflows/wms-api-test.yml`）
+- 需求 ↔ 用例追溯：[uat-coverage.md](../../../docs/uat/uat-coverage.md)
+- 对 staging 重跑：GitHub Actions **wms-api UAT gate** 或本地设 `UAT_BASE_URL`（见 [staging-uat.md](../../../docs/uat/staging-uat.md)）
 
 ## 观测缺口
 
@@ -53,7 +52,7 @@ uv run pytest tests/uat
 | 盘点锁覆盖哪些库位 | 对被锁库位上架/拣货返回 409，释锁后写操作成功 | 无「列出盘点锁」只读接口 |
 | 日报 CSV | `Content-Type: text/csv` 与单元格 | CSV 不是 JSON 信封（`code/message/data/traceId`） |
 
-当前无「必须扩 API 才能签字」的阻塞缺口。
+当前无「必须扩 API 才能自动化验收」的阻塞缺口。
 
 ## 范围外
 

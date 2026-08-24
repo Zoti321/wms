@@ -186,14 +186,22 @@ def list_orders(
     *,
     warehouse_id: int | None = None,
     status: str | None = None,
+    order_no: str | None = None,
+    order_type: str | None = None,
     page: int = 1,
     page_size: int = 20,
 ) -> dict:
+    if order_type is not None and order_type not in ORDER_TYPES:
+        raise InboundError("无效的入库类型")
     stmt = select(InboundOrder)
     if warehouse_id is not None:
         stmt = stmt.where(InboundOrder.warehouse_id == warehouse_id)
     if status is not None:
         stmt = stmt.where(InboundOrder.status == status)
+    if order_no:
+        stmt = stmt.where(InboundOrder.order_no.like(f"%{order_no}%"))
+    if order_type is not None:
+        stmt = stmt.where(InboundOrder.order_type == order_type)
     stmt = stmt.order_by(InboundOrder.created_at.desc(), InboundOrder.id.desc())
     rows, total = paginate(session, stmt, page=page, page_size=page_size)
     return paginated_payload(
@@ -224,12 +232,25 @@ def approve_order(session: Session, order_id: int) -> dict:
     return _order_to_dict(_get_order(session, order.id))
 
 
-def cancel_order(session: Session, order_id: int) -> dict:
+def cancel_order(
+    session: Session,
+    order_id: int,
+    *,
+    cancel_reason_code: str | None = None,
+) -> dict:
+    from app.shared.cancel_reason import (
+        append_cancel_reason_to_remark,
+        resolve_cancel_reason_name,
+    )
+
+    reason_name = resolve_cancel_reason_name(session, cancel_reason_code)
     order = _get_order(session, order_id)
     if order.status in TERMINAL_STATUSES:
         raise InboundConflictError("已完成或已取消不可再取消")
     if any(line.putaway_qty > 0 for line in order.lines):
         raise InboundConflictError("已上架数量不可靠取消抹账")
+    if reason_name is not None:
+        order.remark = append_cancel_reason_to_remark(order.remark, reason_name)
     order.status = STATUS_CANCELLED
     session.commit()
     return _order_to_dict(_get_order(session, order.id))

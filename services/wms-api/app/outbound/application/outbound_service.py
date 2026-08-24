@@ -193,14 +193,22 @@ def list_orders(
     *,
     warehouse_id: int | None = None,
     status: str | None = None,
+    order_no: str | None = None,
+    order_type: str | None = None,
     page: int = 1,
     page_size: int = 20,
 ) -> dict:
+    if order_type is not None and order_type not in ORDER_TYPES:
+        raise OutboundError("无效的出库类型")
     stmt = select(OutboundOrder)
     if warehouse_id is not None:
         stmt = stmt.where(OutboundOrder.warehouse_id == warehouse_id)
     if status is not None:
         stmt = stmt.where(OutboundOrder.status == status)
+    if order_no:
+        stmt = stmt.where(OutboundOrder.order_no.like(f"%{order_no}%"))
+    if order_type is not None:
+        stmt = stmt.where(OutboundOrder.order_type == order_type)
     stmt = stmt.order_by(OutboundOrder.created_at.desc(), OutboundOrder.id.desc())
     rows, total = paginate(session, stmt, page=page, page_size=page_size)
     return paginated_payload(
@@ -415,8 +423,15 @@ def cancel_order(
     *,
     operator_id: int,
     idempotency_key: str,
+    cancel_reason_code: str | None = None,
 ) -> dict:
     """取消未拣：释放预留；已实扣不可抹账。"""
+    from app.shared.cancel_reason import (
+        append_cancel_reason_to_remark,
+        resolve_cancel_reason_name,
+    )
+
+    reason_name = resolve_cancel_reason_name(session, cancel_reason_code)
     replay = inv.load_json_idempotent(
         session, scope=CANCEL_SCOPE, idempotency_key=idempotency_key
     )
@@ -459,6 +474,8 @@ def cancel_order(
     has_picked = any(line.picked_qty > 0 for line in order.lines)
     # 已有实扣 → 已完成（保留已出库）；无实扣 → 已取消。纠错走退货入库。
     order.status = STATUS_DONE if has_picked else STATUS_CANCELLED
+    if reason_name is not None:
+        order.remark = append_cancel_reason_to_remark(order.remark, reason_name)
     note = None
     if has_picked:
         note = "已实扣数量已保留，不可靠取消抹账；纠错请走退货入库"

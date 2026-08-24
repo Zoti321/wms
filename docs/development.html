@@ -50,6 +50,7 @@
         <span>文档编号 WMS-SDD-001</span>
         <span>版本 1.3 · 2026-08-22</span>
         <span class="badge amber">后端：FastAPI + MySQL 8.0 + uv</span>
+        <span class="badge amber">前端：Vue 3 + Vite + Element Plus</span>
       </div>
 
       <h1>仓脉 WMS 开发设计说明书</h1>
@@ -65,7 +66,7 @@
         <li><strong>交付面 ≠ 上下文</strong>：后端、网页后台、小程序是适配器；领域按 catalog / inventory / inbound / outbound / stocktake 分包。</li>
       </ul>
 
-      <h2 id="d2">2. 技术选型（推荐示例）</h2>
+      <h2 id="d2">2. 技术选型</h2>
       <table>
         <thead>
           <tr><th>层级</th><th>选型</th><th>说明</th></tr>
@@ -78,11 +79,13 @@
           <tr><td>缓存 / 队列</td><td>MVP <strong>不上</strong> Redis / Celery</td><td>幂等键与业务数据均落 MySQL；库存预警在余额变更后同步判定</td></tr>
           <tr><td>测试</td><td>pytest + httpx</td><td>API 与库存分配/实扣等集成测试；测试库可回滚或独立库</td></tr>
           <tr><td>文档</td><td>OpenAPI 3（FastAPI 自动生成）</td><td>前后端/小程序契约</td></tr>
-          <tr><td>工程</td><td>Monorepo（前端 pnpm；后端 API 用 uv）</td><td>packages 按交付面与领域上下文组织</td></tr>
+          <tr><td>工程</td><td>Monorepo（<code>apps/</code> 下 pnpm workspace；后端 API 用 uv）</td><td>交付面按 apps / services 组织</td></tr>
           <tr><td>部署</td><td>Docker Compose + uvicorn</td><td>MVP：api + mysql；生产可再评估多 worker</td></tr>
         </tbody>
       </table>
-      <p>后端选型已定为 <strong>FastAPI + MySQL 8.0 + uv</strong>：驱动 PyMySQL，ORM 写路径同步 Session，密码 bcrypt，进程 uvicorn，配置 pydantic-settings，时间 UTC，测试 pytest + httpx。MVP 不上 Redis。预警在库存记账成功后同步判定。权衡见 <a href="adr/0001-fastapi-sync-mysql-no-redis.md">ADR-0001</a>。<strong>库存事务、软分配、流水表、盘点锁</strong>为不可妥协的设计约束。</p>
+      <p>后端选型已定为 <strong>FastAPI + MySQL 8.0 + uv</strong>：驱动 PyMySQL，ORM 写路径同步 Session，密码 bcrypt，进程 uvicorn，配置 pydantic-settings，时间 UTC，测试 pytest + httpx。MVP 不上 Redis。预警在库存记账成功后同步判定。权衡见 <a href="adr/0001-fastapi-sync-mysql-no-redis.md">ADR-0001</a>。</p>
+      <p>网页后台选型已定为 <strong>Vue 3 + TypeScript + Vite + Element Plus</strong>：<code>apps/</code> 目录 pnpm workspace；<code>openapi-typescript</code> + axios 薄封装对接统一信封；Pinia 承载 auth/app 上下文；Access Token 存 sessionStorage；静态路由 + <code>meta.permission</code> 与后端权限码对齐。权衡见 <a href="adr/0003-web-admin-vue-element-plus.md">ADR-0003</a>；调研过程见 <a href="research/web-admin-stack.md">web-admin-stack.md</a>。</p>
+      <p><strong>库存事务、软分配、流水表、盘点锁</strong>为不可妥协的设计约束。</p>
 
       <h2 id="d3">3. 系统架构</h2>
       <pre>┌──────────────┐  ┌──────────────┐
@@ -262,6 +265,8 @@ CREATE TABLE inventory_ledger (
       <h2 id="d8">8. 工程结构（Monorepo 示例）</h2>
       <pre>wms/
 ├── apps/
+│   ├── package.json         # 前端 pnpm workspace 根
+│   ├── pnpm-workspace.yaml
 │   ├── web-admin/           # Vue3 网页后台
 │   └── mini-program/        # 小程序作业端
 ├── services/
@@ -296,7 +301,9 @@ CREATE TABLE inventory_ledger (
         <li>接口变更更新 OpenAPI；破坏性变更升 <code>/api/v2</code></li>
         <li>配置与密钥：pydantic-settings + <code>.env</code>（不入库）；Compose/环境变量注入</li>
         <li>时间：DB 与 API 统一 UTC；前端/小程序展示再转本地</li>
-        <li>CORS：开发环境白名单本地 Vite 源；小程序不依赖浏览器 CORS</li>
+        <li>CORS：开发环境白名单本地 Vite 源（默认 <code>http://localhost:5173</code>）；小程序不依赖浏览器 CORS</li>
+        <li>Web Admin：JWT 存 sessionStorage；路由 <code>meta.permission</code> 与 <code>/auth/me</code> 权限码一致；API 类型从 <code>/openapi.json</code> 生成</li>
+        <li>Web Admin 测试：Vitest 覆盖 auth/permission/API 封装；Playwright E2E 待 M2 核心流贯通后补充</li>
         <li>库存单测/集成测必覆盖：分配不足、实扣、释放预留、乐观锁冲突、幂等、盘点锁拒绝进出（pytest + httpx）</li>
         <li>禁止在 Controller 或 inbound/outbound 包直接 UPDATE <code>inventory</code></li>
         <li>操作日志与库存流水分表存储、分接口查询</li>
@@ -340,7 +347,7 @@ CREATE TABLE inventory_ledger (
           <tr><td>M2 入库闭环</td><td>已完成</td><td>入库单 + 部分上架 + 库存增账 + 流水（<code>0003_m2</code>）</td></tr>
           <tr><td>M3 出库闭环</td><td>已完成</td><td>分配预留 + 拣货实扣 + 取消释放 + 乐观锁防超卖（<code>0004_m3</code>）</td></tr>
           <tr><td>M4 盘点报表</td><td>已完成</td><td>盘点锁、盈亏调账、库存预警、日报 JSON/CSV、操作日志（<code>0005_m4</code>–<code>0007_m6</code>）</td></tr>
-          <tr><td>M5 上线</td><td>进行中</td><td>UAT 自动化与发版 CI 已就绪；三角色人工签字、压测、小程序作业面待完成</td></tr>
+          <tr><td>M5 上线</td><td>进行中</td><td>UAT 已纳入 PR/main CI；压测、小程序作业面待完成</td></tr>
         </tbody>
       </table>
 
@@ -367,8 +374,9 @@ CREATE TABLE inventory_ledger (
         </thead>
         <tbody>
           <tr><td>日常集成测</td><td><code>services/wms-api/tests/</code>（不含 <code>uat/</code>）</td><td>PR 回归</td><td>120 用例；需可达 MySQL</td></tr>
-          <tr><td>后端 UAT</td><td><code>services/wms-api/tests/uat/</code></td><td>发版/上线门禁</td><td>24 用例；本地 TestClient 或 <code>UAT_BASE_URL</code> 对 staging</td></tr>
-          <tr><td>人工签字</td><td><code>docs/uat/backend-signoff.md</code></td><td>三角色各抽查一条关键路径</td><td>自动化与 UAT CI 就绪；签字待执行</td></tr>
+          <tr><td>后端 UAT</td><td><code>services/wms-api/tests/uat/</code></td><td>发版/上线门禁（纯自动化）</td><td>24 用例；PR/main CI 自动跑；staging 可 <code>UAT_BASE_URL</code> 重跑</td></tr>
+          <tr><td>Web Admin E2E</td><td><code>apps/web-admin/e2e/</code></td><td>前端核心路径（mock API）</td><td>PR/main CI 自动跑 Playwright</td></tr>
+          <tr><td>需求追溯</td><td><code>docs/uat/uat-coverage.md</code></td><td>需求验收 ↔ UAT 用例对照</td><td>无人工签字</td></tr>
         </tbody>
       </table>
       <p>无 MySQL 且未设 <code>UAT_BASE_URL</code> 时集成测与 UAT 均 <code>pytest.skip</code>，不假绿。UAT 观测缺口登记见 <code>services/wms-api/tests/uat/README.md</code>。</p>
@@ -385,12 +393,11 @@ CREATE TABLE inventory_ledger (
           <tr><th>缺口</th><th>说明</th></tr>
         </thead>
         <tbody>
-          <tr><td>CI 流水线</td><td>PR：<code>.github/workflows/wms-api-test.yml</code>（MySQL 8 + 集成测，不含 UAT）；发版：<code>wms-api-uat.yml</code>（手动触发 UAT 门禁）</td></tr>
+          <tr><td>CI 流水线</td><td>PR/main：<code>wms-api-test.yml</code>（MySQL 8 + 集成测 + UAT）；staging：<code>wms-api-uat.yml</code>（手动 + 可选 <code>uat_base_url</code>）；前端：<code>web-admin-test.yml</code></td></tr>
           <tr><td>健康检查</td><td><code>GET /health</code> 探测 MySQL（<code>SELECT 1</code>）；失败 HTTP 503 + <code>degraded</code>；可选 <code>HEALTH_CHECK_DB=false</code></td></tr>
           <tr><td>性能/压测</td><td>仅集成测覆盖轻量「并发分配不超卖」；无 P95 / 日单据量压测</td></tr>
-          <tr><td>备份恢复演练</td><td><a href="runbooks/mysql-backup-restore.md">Runbook</a> 已文档化；季度人工演练待执行</td></tr>
+          <tr><td>备份恢复演练</td><td><a href="runbooks/mysql-backup-restore.md">Runbook</a> 已文档化；季度演练仍建议保留（运维流程，非业务 UAT）</td></tr>
           <tr><td>监控告警</td><td><code>GET /metrics</code>（Prometheus：HTTP 错误率/耗时、连接池、库存写路径 counter）；告警规则示例见 <a href="runbooks/operational-monitoring.md">Runbook</a>（#15）</td></tr>
-          <tr><td>UAT 人工签字</td><td>自动化与 <code>wms-api-uat.yml</code> 门禁就绪；<code>docs/uat/backend-signoff.md</code> 含可执行 API 步骤，三角色抽查待完成</td></tr>
         </tbody>
       </table>
 
@@ -405,9 +412,9 @@ CREATE TABLE inventory_ledger (
 
       <h3>12.6 建议优先级</h3>
       <ol>
-        <li><strong>支撑 Web 管理端</strong>：只读列表分页已完成（#16）；Web 管理端 UI 对接进行中。</li>
-        <li><strong>发版门禁</strong>：PR CI（MySQL + 集成测）+ 发版前手动跑 <code>wms-api-uat.yml</code> 或 <code>pytest tests/uat</code> + UAT 人工签字（<a href="uat/backend-signoff.md">清单</a>）。</li>
-        <li><strong>生产就绪</strong>：健康检查探 DB（已完成）、<a href="runbooks/mysql-backup-restore.md">备份 Runbook</a>（已完成）、<a href="runbooks/operational-monitoring.md">运行监控</a>（#15 已完成）；staging 上 <code>UAT_BASE_URL</code> 重跑 UAT（见 <a href="uat/staging-uat.md">staging 指南</a>）；三角色 UAT 签字待完成。</li>
+        <li><strong>支撑 Web 管理端</strong>：只读列表分页已完成（#16）；技术栈与 <code>apps/web-admin/</code> 骨架已定（<a href="adr/0003-web-admin-vue-element-plus.md">ADR-0003</a>）；下一步登录联调与各模块列表页对接。</li>
+        <li><strong>发版门禁</strong>：PR/main CI 自动跑集成测 + UAT + Web Admin E2E；staging 部署后可选 <code>wms-api-uat.yml</code> + <code>UAT_BASE_URL</code>（见 <a href="uat/staging-uat.md">staging 指南</a>）。追溯见 <a href="uat/uat-coverage.md">uat-coverage.md</a>。</li>
+        <li><strong>生产就绪</strong>：健康检查探 DB（已完成）、<a href="runbooks/mysql-backup-restore.md">备份 Runbook</a>（已完成）、<a href="runbooks/operational-monitoring.md">运行监控</a>（#15 已完成）。</li>
       </ol>
 
       <div class="callout">

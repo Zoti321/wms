@@ -21,7 +21,9 @@ from app.platform.domain.permissions import (
     PERM_OUTBOUND_WRITE,
 )
 from app.shared.db import get_db
+from app.shared.cancel_reason import CancelReasonValidationError
 from app.shared.http_errors import DomainErrorRule, map_domain_error, require_idempotency_key
+from app.shared.schemas import CancelRequest
 from app.shared.pagination import pagination_query
 from app.shared.response import ok
 
@@ -30,6 +32,12 @@ router = APIRouter(prefix="/outbound-orders", tags=["outbound"])
 _OUTBOUND_RULES = (
     DomainErrorRule(svc.OutboundNotFoundError, 40400, status.HTTP_404_NOT_FOUND, "资源不存在"),
     DomainErrorRule(svc.OutboundConflictError, 40900, status.HTTP_409_CONFLICT),
+    DomainErrorRule(
+        CancelReasonValidationError,
+        42200,
+        status.HTTP_422_UNPROCESSABLE_ENTITY,
+        "无效的取消原因",
+    ),
     DomainErrorRule(svc.OutboundError, 40000, status.HTTP_400_BAD_REQUEST),
 )
 
@@ -60,20 +68,27 @@ def create_outbound_order(
 def list_outbound_orders(
     warehouse_id: int | None = None,
     status: str | None = None,
+    order_no: str | None = None,
+    order_type: str | None = None,
     paging: tuple[int, int] = Depends(pagination_query),
     session: Session = Depends(get_db),
     _: CurrentUser = Depends(require_permissions(PERM_OUTBOUND_READ)),
 ) -> dict:
     page, page_size = paging
-    return ok(
-        svc.list_orders(
-            session,
-            warehouse_id=warehouse_id,
-            status=status,
-            page=page,
-            page_size=page_size,
+    try:
+        return ok(
+            svc.list_orders(
+                session,
+                warehouse_id=warehouse_id,
+                status=status,
+                order_no=order_no,
+                order_type=order_type,
+                page=page,
+                page_size=page_size,
+            )
         )
-    )
+    except svc.OutboundError as exc:
+        map_domain_error(exc, _OUTBOUND_RULES)
 
 
 @router.get("/{order_id}")
@@ -183,18 +198,21 @@ def pick_outbound_order(
 @router.post("/{order_id}/cancel")
 def cancel_outbound_order(
     order_id: int,
+    body: CancelRequest | None = None,
     session: Session = Depends(get_db),
     current_user: CurrentUser = Depends(require_permissions(PERM_OUTBOUND_WRITE)),
     idempotency_key: str = Depends(require_idempotency_key),
 ) -> dict:
     try:
+        cancel_reason_code = body.cancel_reason_code if body else None
         return ok(
             svc.cancel_order(
                 session,
                 order_id,
                 operator_id=current_user.id,
                 idempotency_key=idempotency_key,
+                cancel_reason_code=cancel_reason_code,
             )
         )
-    except svc.OutboundError as exc:
+    except (svc.OutboundError, CancelReasonValidationError) as exc:
         map_domain_error(exc, _OUTBOUND_RULES)

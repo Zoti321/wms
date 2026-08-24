@@ -30,12 +30,7 @@
 ```bash
 cd services/wms-api
 
-# Bash
 export UAT_BASE_URL="https://staging.example.com"
-uv run pytest tests/uat -v --fail-on-skipped
-
-# PowerShell
-$env:UAT_BASE_URL="https://staging.example.com"
 uv run pytest tests/uat -v --fail-on-skipped
 ```
 
@@ -46,7 +41,7 @@ uv run pytest tests/uat -v --fail-on-skipped
 - `uat_base_url` 留空：CI 内 MySQL 8 + TestClient（与本地等效）
 - 填写 staging URL：对真实部署发 HTTP（MySQL 服务容器仍启动但不会被 UAT 使用）
 
-绿灯后在 [`backend-signoff.md`](./backend-signoff.md) 记录 Run URL 与 commit SHA。
+绿灯后在 PR / 发版记录中保存 Actions Run URL 与 commit SHA（追溯见 [`uat-coverage.md`](./uat-coverage.md)）。
 
 ## 常见问题
 
