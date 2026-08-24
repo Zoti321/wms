@@ -1,8 +1,14 @@
 import { errorMessage } from '@/utils/errorMessage'
 import { isStocktakeLockConflict } from '@/utils/stocktakeLock'
 
-/** 盘点锁冲突：专用 Modal；其它错误：页内文案 + Toast。返回展示用 message。 */
-export function reportJobConflict(error: unknown, fallback: string): string {
+export interface JobFailureReport {
+  message: string
+  /** 是否已用盘点锁专用 Modal 展示 */
+  usedStocktakeLockModal: boolean
+}
+
+/** 盘点锁：专用 Modal；其它错误：Toast。页内 formError 仅在非盘点锁时由调用方写入。 */
+export function reportJobConflict(error: unknown, fallback: string): JobFailureReport {
   const message = errorMessage(error, fallback)
   if (isStocktakeLockConflict(error)) {
     uni.showModal({
@@ -11,8 +17,8 @@ export function reportJobConflict(error: unknown, fallback: string): string {
       showCancel: false,
       confirmText: '知道了',
     })
-  } else {
-    uni.showToast({ title: message, icon: 'none' })
+    return { message, usedStocktakeLockModal: true }
   }
-  return message
+  uni.showToast({ title: message, icon: 'none' })
+  return { message, usedStocktakeLockModal: false }
 }

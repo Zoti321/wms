@@ -55,6 +55,13 @@ export const ROLE_CODE_LABEL: Record<string, string> = {
   viewer: '只读用户',
 }
 
+/** 库位状态（≠ 盘点锁、≠ 库存冻结数量）；对齐 web-admin SPACE_STATUS_LABEL。 */
+export const SPACE_STATUS_LABEL: Record<string, string> = {
+  idle: '空闲',
+  occupied: '占用',
+  frozen: '冻结',
+}
+
 export function statusLabel(kind: 'inbound' | 'outbound', status: string): string {
   if (kind === 'inbound') {
     return INBOUND_STATUS_LABEL[status as InboundStatus] ?? status

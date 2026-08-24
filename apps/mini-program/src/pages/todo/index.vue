@@ -9,6 +9,7 @@ import { formatDateTime } from '@/utils/formatDateTime'
 import {
   enrichPendingLineCounts,
   filterTodoTasks,
+  mergePendingLineCount,
   mergeTodoTasks,
   toTaskCard,
   type TaskCard,
@@ -44,12 +45,7 @@ async function enrichCounts(cards: TaskCard[]): Promise<void> {
     if (!byKey.has(key)) {
       return card
     }
-    const count = byKey.get(key)
-    if (count === undefined) {
-      const { pendingLineCount: _drop, ...rest } = card
-      return rest
-    }
-    return { ...card, pendingLineCount: count }
+    return mergePendingLineCount(card, byKey.get(key))
   })
 }
 

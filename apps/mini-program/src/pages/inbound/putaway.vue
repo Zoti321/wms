@@ -159,7 +159,10 @@ async function onSubmit(): Promise<void> {
       uni.navigateBack()
     }, 400)
   } catch (error) {
-    formError.value = reportJobConflict(error, '上架失败')
+    const report = reportJobConflict(error, '上架失败')
+    if (!report.usedStocktakeLockModal) {
+      formError.value = report.message
+    }
   } finally {
     submitting.value = false
   }
