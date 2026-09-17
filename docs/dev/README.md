@@ -31,6 +31,7 @@
 | [milestones.md](./milestones.md) | 里程碑计划 |
 | [ops.md](./ops.md) | 部署与运维要点 |
 | [backend-status.md](./backend-status.md) | 后端实现状态与缺口（**活文档**） |
+| [warehouse-comparison.md](./warehouse-comparison.md) | 与参考项目 yeqifu/warehouse 的功能对比与缺口 |
 | [mini-program-summary.md](./mini-program-summary.md) | 小程序作业端摘要 |
 
 人类浏览入口：[`docs/development.html`](../development.html)（索引页，正文以本目录 Markdown 为准）。
