@@ -1,7 +1,7 @@
 # 库存（inventory）
 
 术语：[`src/inventory/CONTEXT.md`](../../src/inventory/CONTEXT.md)  
-实现：[`docs/development.html`](../development.html)（模块 inventory）
+实现：[`docs/dev/architecture.md`](../dev/architecture.md)（模块 inventory）
 
 ## 目标与范围
 

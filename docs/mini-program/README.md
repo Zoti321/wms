@@ -1,6 +1,6 @@
 # 小程序开发文档（给 Agent / 开发者）
 
-仓脉 WMS **仓管员作业端**（uni-app · 微信小程序）的实现说明。业务规则见 [`docs/requirements/`](../requirements/README.md)；术语见 [`CONTEXT-MAP.md`](../../CONTEXT-MAP.md)；后端契约见 [`docs/development.html`](../development.html)。
+仓脉 WMS **仓管员作业端**（uni-app · 微信小程序）的实现说明。业务规则见 [`docs/requirements/`](../requirements/README.md)；术语见 [`CONTEXT-MAP.md`](../../CONTEXT-MAP.md)；后端契约见 [`docs/dev/`](../dev/README.md)（摘要见 [`mini-program-summary.md`](../dev/mini-program-summary.md)）。
 
 **UI / UX 设计**不在此目录重复：全局规范见 [`design-system/wms/MASTER-MINI.md`](../../design-system/wms/MASTER-MINI.md)；各页 override 见 [`design-system/wms/pages/`](../../design-system/wms/pages/)。
 

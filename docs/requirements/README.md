@@ -2,7 +2,7 @@
 
 权威需求在本目录的 **Markdown**。`docs/requirements.html` 仅供人浏览的索引。
 
-术语以 `CONTEXT-MAP.md` 与各 `src/*/CONTEXT.md` 为准；本目录**不重复术语表**。实现与表结构见 `docs/development.html`。
+术语以 `CONTEXT-MAP.md` 与各 `src/*/CONTEXT.md` 为准；本目录**不重复术语表**。实现与表结构见 [`docs/dev/README.md`](../dev/README.md)。
 
 ## 何时读哪个文件
 

@@ -33,7 +33,7 @@
 
 **Vue 3**（[Introduction \| Vue.js](https://vuejs.org/guide/introduction.html)）：渐进式框架，单文件组件适合表格页快速迭代；官方生态含 Vue Router、Pinia。
 
-**React**：生态同样成熟，但本仓库 SDD 与目录结构已锚定 Vue 3（`docs/development.html` §2、§8），且无跨端复用需求（小程序独立）。**无足够理由在 MVP 阶段改栈**。
+**React**：生态同样成熟，但本仓库 SDD 与目录结构已锚定 Vue 3（[`docs/dev/stack.md`](../dev/stack.md)、[`docs/dev/repo-layout.md`](../dev/repo-layout.md)），且无跨端复用需求（小程序独立）。**无足够理由在 MVP 阶段改栈**。
 
 → **Vue 3**（ADR 锁定）
 
@@ -122,7 +122,7 @@ Vitest 与 Vite 同源配置，适合单测 `hasPermission()`、axios 信封解�
 
 ## 参考
 
-- `docs/development.html` §2、§8、§9
+- `docs/dev/stack.md`、`docs/dev/repo-layout.md`、`docs/dev/conventions.md`
 - `docs/adr/0001-fastapi-sync-mysql-no-redis.md`
 - `services/wms-api/app/platform/api/auth.py`
 - `services/wms-api/app/platform/domain/permissions.py`

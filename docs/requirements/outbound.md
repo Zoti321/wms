@@ -1,7 +1,7 @@
 # 出库（outbound）
 
 术语：[`src/outbound/CONTEXT.md`](../../src/outbound/CONTEXT.md)  
-实现：[`docs/development.html`](../development.html)（模块 outbound）
+实现：[`docs/dev/architecture.md`](../dev/architecture.md)（模块 outbound）
 
 ## 目标与范围
 

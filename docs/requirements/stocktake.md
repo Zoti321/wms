@@ -1,7 +1,7 @@
 # 盘点（stocktake）
 
 术语：[`src/stocktake/CONTEXT.md`](../../src/stocktake/CONTEXT.md)  
-实现：[`docs/development.html`](../development.html)（模块 stocktake）
+实现：[`docs/dev/architecture.md`](../dev/architecture.md)（模块 stocktake）
 
 ## 目标与范围
 

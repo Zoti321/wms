@@ -2,7 +2,7 @@
 
 文档编号 WMS-SRS-001 · 模块 `overview` · 版本 1.2
 
-术语与上下文边界见 [领域模型](../domain.html) / 根目录 `CONTEXT-MAP.md`。实现见 [开发文档](../development.html)。
+术语与上下文边界见 [领域模型](../domain.html) / 根目录 `CONTEXT-MAP.md`。实现见 [开发文档](../dev/README.md)。
 
 ## 目标与范围
 

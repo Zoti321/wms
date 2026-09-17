@@ -25,486 +25,94 @@
     </div>
   </header>
 
-  <div class="layout">
-    <aside class="toc">
-      <h2>目录</h2>
-      <ol>
-        <li><a href="#d1">概述与原则</a></li>
-        <li><a href="#d2">技术选型</a></li>
-        <li><a href="#d3">系统架构</a></li>
-        <li><a href="#d4">模块划分</a></li>
-        <li><a href="#d5">数据模型</a></li>
-        <li><a href="#d6">API 设计</a></li>
-        <li><a href="#d7">状态机</a></li>
-        <li><a href="#d8">工程结构</a></li>
-        <li><a href="#d9">开发规范</a></li>
-        <li><a href="#d10">里程碑</a></li>
-        <li><a href="#d11">部署运维</a></li>
-        <li><a href="#d12">后端实现状态</a></li>
-        <li><a href="#d13">小程序作业端</a></li>
-      </ol>
-    </aside>
-
+  <div class="layout solo">
     <article class="doc">
       <div class="doc-meta">
-        <span class="badge">SDD · 开发设计说明书</span>
+        <span class="badge">SDD · 索引</span>
         <span>文档编号 WMS-SDD-001</span>
         <span>版本 1.4 · 2026-08-24</span>
-        <span class="badge amber">后端：FastAPI + MySQL 8.0 + uv</span>
-        <span class="badge amber">前端：Vue 3 + Vite + Element Plus</span>
-        <span class="badge amber">小程序：uni-app · 微信小程序</span>
+        <span class="badge amber">Markdown 为权威</span>
       </div>
 
       <h1>仓脉 WMS 开发设计说明书</h1>
-      <p class="lead">实现路径：技术栈、限界上下文落码、数据模型、API、状态机与里程碑。业务规则见 <a href="requirements.html">需求索引</a>（正文 <code>docs/requirements/*.md</code>）；术语见 <a href="domain.html">领域模型</a>。</p>
+      <p class="lead">正文已迁至 <code>docs/dev/*.md</code>。本页只做导航；业务规则见 <a href="requirements.html">需求索引</a>，术语见 <a href="domain.html">领域模型</a>。</p>
 
-      <h2 id="d1">1. 概述与设计原则</h2>
-      <ul>
-        <li><strong>库存唯一账本</strong>：只有 inventory 上下文改数量并写 ledger；inbound / outbound / stocktake 发请求，以记账成功为准。</li>
-        <li><strong>出库软分配</strong>：审核 = 可用→冻结；拣货 = 预留实扣；取消未拣 = 释放预留。</li>
-        <li><strong>盘点锁</strong>：锁库位作业，不靠把数量记入冻结数量实现。</li>
-        <li><strong>幂等与防超卖</strong>：分配/实扣使用库存行 <code>version</code> 乐观锁；重复提交用业务单号 + 执行幂等键（MVP 幂等记录存 MySQL，不上 Redis）。</li>
-        <li><strong>仓库一等</strong>：表与 API 均带 <code>warehouse_id</code>；MVP 只启用一个仓库。</li>
-        <li><strong>交付面 ≠ 上下文</strong>：后端、网页后台、小程序是适配器；领域按 catalog / inventory / inbound / outbound / stocktake 分包。</li>
-      </ul>
+      <div class="callout">
+        <strong>权威正文：</strong><code>docs/dev/</code>。地图见 <a href="dev/README.md">dev/README.md</a>。
+      </div>
 
-      <h2 id="d2">2. 技术选型</h2>
-      <table>
-        <thead>
-          <tr><th>层级</th><th>选型</th><th>说明</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>网页后台</td><td>Vue 3 + TypeScript + Vite + Element Plus</td><td>管理端；路由权限 + 表格/表单为主</td></tr>
-          <tr><td>小程序</td><td>微信小程序原生或 uni-app</td><td>仓管员上架/拣货作业面；调同一套 API</td></tr>
-          <tr><td>后端</td><td>Python 3.12+ + FastAPI + uvicorn</td><td>REST；仅 Access JWT；密码 bcrypt；配置 <strong>pydantic-settings</strong> + <code>.env</code>；CORS 白名单；包管理 uv</td></tr>
-          <tr><td>持久化</td><td>MySQL 8.0（InnoDB）+ SQLAlchemy 2（同步 Session）+ PyMySQL + Alembic</td><td>时间统一 <strong>UTC</strong>；库存写路径明确事务；本地可用 <code>mysql:8.0</code></td></tr>
-          <tr><td>缓存 / 队列</td><td>MVP <strong>不上</strong> Redis / Celery</td><td>幂等键与业务数据均落 MySQL；库存预警在余额变更后同步判定</td></tr>
-          <tr><td>测试</td><td>pytest + httpx</td><td>API 与库存分配/实扣等集成测试；测试库可回滚或独立库</td></tr>
-          <tr><td>文档</td><td>OpenAPI 3（FastAPI 自动生成）</td><td>前后端/小程序契约</td></tr>
-          <tr><td>工程</td><td>Monorepo（<code>apps/</code> 下 pnpm workspace；后端 API 用 uv）</td><td>交付面按 apps / services 组织</td></tr>
-          <tr><td>部署</td><td>Docker Compose + uvicorn</td><td>MVP：api + mysql；生产可再评估多 worker</td></tr>
-        </tbody>
-      </table>
-      <p>后端选型已定为 <strong>FastAPI + MySQL 8.0 + uv</strong>：驱动 PyMySQL，ORM 写路径同步 Session，密码 bcrypt，进程 uvicorn，配置 pydantic-settings，时间 UTC，测试 pytest + httpx。MVP 不上 Redis。预警在库存记账成功后同步判定。权衡见 <a href="adr/0001-fastapi-sync-mysql-no-redis.md">ADR-0001</a>。</p>
-      <p>网页后台选型已定为 <strong>Vue 3 + TypeScript + Vite + Element Plus</strong>：<code>apps/</code> 目录 pnpm workspace；<code>openapi-typescript</code> + axios 薄封装对接统一信封；Pinia 承载 auth/app 上下文；Access Token 存 sessionStorage；静态路由 + <code>meta.permission</code> 与后端权限码对齐。权衡见 <a href="adr/0003-web-admin-vue-element-plus.md">ADR-0003</a>；调研过程见 <a href="research/web-admin-stack.md">web-admin-stack.md</a>。</p>
-      <p><strong>库存事务、软分配、流水表、盘点锁</strong>为不可妥协的设计约束。</p>
-
-      <h2 id="d3">3. 系统架构</h2>
-      <pre>┌──────────────┐  ┌──────────────┐
-│  Web Admin   │  │ Mini Program │
-│  (Vue 3)     │  │ (作业端)      │
-└──────┬───────┘  └──────┬───────┘
-       │ HTTPS/JSON      │
-       └────────┬────────┘
-                ▼
-       ┌────────────────────┐
-       │  wms-api (FastAPI) │
-       │  Auth · ACL · API  │  ← 平台：身份 / 操作日志
-       └─────────┬──────────┘
-                 │
-    ┌────────────┼────────────────────────────┐
-    ▼            ▼            ▼               ▼
- catalog     inbound      outbound        stocktake
-    │            │            │               │
-    └────────────┴─────┬──────┴───────────────┘
-                       ▼
-                  inventory   ← 唯一改账 + ledger + 预警
-                       ▼
-                  MySQL 8.0 (InnoDB)</pre>
-
-      <h3>分层约定</h3>
-      <ul>
-        <li><strong>Controller</strong>：参数校验、鉴权、DTO，不含库存规则</li>
-        <li><strong>Application</strong>：用例编排（如 <code>approveOutbound</code> → 调用库存分配）</li>
-        <li><strong>Domain（按上下文）</strong>：状态机、分配/实扣/盘点锁策略</li>
-        <li><strong>Infrastructure</strong>：SQLAlchemy 同步仓储、JWT（Access）、操作日志持久化</li>
-      </ul>
-
-      <h2 id="d4">4. 模块划分</h2>
+      <h2>模块</h2>
       <div class="grid-2">
-        <div class="feature">
-          <h3>catalog · 主数据</h3>
-          <p>仓库、SKU、库区库位、供应商/客户、安全库存阈值。</p>
-        </div>
-        <div class="feature">
-          <h3>inventory · 库存</h3>
-          <p>余额、分配/实扣/释放、流水、库存预警。唯一写库存表。</p>
-        </div>
-        <div class="feature">
-          <h3>inbound · 入库</h3>
-          <p>入库单/行、审核、上架记录；请求库存增加。</p>
-        </div>
-        <div class="feature">
-          <h3>outbound · 出库</h3>
-          <p>出库单/行、审核分配、拣货实扣、取消释放预留。</p>
-        </div>
-        <div class="feature">
-          <h3>stocktake · 盘点</h3>
-          <p>盘点单、盘点锁、实盘、盈亏审核请求调账。</p>
-        </div>
-        <div class="feature">
-          <h3>platform · 身份与审计</h3>
-          <p>用户角色、菜单权限、操作日志。非领域上下文。</p>
-        </div>
+        <a class="card-link" href="dev/README.md">
+          <div class="num">00 · OVERVIEW</div>
+          <h2>设计原则与索引</h2>
+          <p>库存唯一账本、软分配、盘点锁等不可妥协约束。</p>
+        </a>
+        <a class="card-link" href="dev/stack.md">
+          <div class="num">01 · STACK</div>
+          <h2>技术选型</h2>
+          <p>FastAPI、MySQL、Vue 3、uni-app；ADR 链接。</p>
+        </a>
+        <a class="card-link" href="dev/architecture.md">
+          <div class="num">02 · ARCH</div>
+          <h2>架构与模块</h2>
+          <p>系统分层、限界上下文落码。</p>
+        </a>
+        <a class="card-link" href="dev/data-model.md">
+          <div class="num">03 · DATA</div>
+          <h2>数据模型</h2>
+          <p>核心表与分配伪代码。</p>
+        </a>
+        <a class="card-link" href="dev/api.md">
+          <div class="num">04 · API</div>
+          <h2>API 设计</h2>
+          <p>统一前缀、信封、主要路由。</p>
+        </a>
+        <a class="card-link" href="dev/state-machines.md">
+          <div class="num">05 · FSM</div>
+          <h2>状态机</h2>
+          <p>入库、出库单据生命周期。</p>
+        </a>
+        <a class="card-link" href="dev/repo-layout.md">
+          <div class="num">06 · REPO</div>
+          <h2>工程结构</h2>
+          <p>Monorepo 目录树。</p>
+        </a>
+        <a class="card-link" href="dev/conventions.md">
+          <div class="num">07 · CONVENTIONS</div>
+          <h2>开发规范</h2>
+          <p>分支、术语、测试、库存写路径禁令。</p>
+        </a>
+        <a class="card-link" href="dev/milestones.md">
+          <div class="num">08 · MILESTONES</div>
+          <h2>里程碑</h2>
+          <p>M0–M5 交付计划。</p>
+        </a>
+        <a class="card-link" href="dev/ops.md">
+          <div class="num">09 · OPS</div>
+          <h2>部署运维</h2>
+          <p>健康检查、备份、监控。</p>
+        </a>
+        <a class="card-link" href="dev/backend-status.md">
+          <div class="num">10 · STATUS</div>
+          <h2>后端实现状态</h2>
+          <p>完成度、缺口、CI 门禁（活文档）。</p>
+        </a>
+        <a class="card-link" href="dev/mini-program-summary.md">
+          <div class="num">11 · MINI</div>
+          <h2>小程序摘要</h2>
+          <p>M5 作业端进度与人工走查清单。</p>
+        </a>
       </div>
-
-      <h2 id="d5">5. 数据模型（核心）</h2>
-      <h3>5.1 ER 关系（文字版）</h3>
-      <p>Warehouse 1—N Location；SKU 跨仓共享；Inventory 为（Warehouse × SKU × Location）余额；InboundOrder / OutboundOrder 1—N Line，均属 Warehouse；每次上架/拣货/盈亏写 InventoryLedger（含 ref_line_id）。</p>
-
-      <h3>5.2 关键表（简化 DDL 示意）</h3>
-      <pre>CREATE TABLE warehouse (
-  id              BIGINT PRIMARY KEY AUTO_INCREMENT,
-  warehouse_code  VARCHAR(64) NOT NULL UNIQUE,
-  name            VARCHAR(200) NOT NULL,
-  status          TINYINT NOT NULL DEFAULT 1
-) ENGINE=InnoDB;
-
-CREATE TABLE sku (
-  id            BIGINT PRIMARY KEY AUTO_INCREMENT,
-  sku_code      VARCHAR(64) NOT NULL UNIQUE,
-  name          VARCHAR(200) NOT NULL,
-  unit          VARCHAR(16) NOT NULL,
-  safety_stock  DECIMAL(18,3) NOT NULL DEFAULT 0,
-  status        TINYINT NOT NULL DEFAULT 1
-) ENGINE=InnoDB;
-
-CREATE TABLE location (
-  id            BIGINT PRIMARY KEY AUTO_INCREMENT,
-  warehouse_id  BIGINT NOT NULL,
-  location_code VARCHAR(64) NOT NULL,
-  zone          VARCHAR(32),
-  status        TINYINT NOT NULL DEFAULT 1, -- 含盘点锁等作业状态
-  UNIQUE (warehouse_id, location_code),
-  CONSTRAINT fk_location_wh FOREIGN KEY (warehouse_id) REFERENCES warehouse(id)
-) ENGINE=InnoDB;
-
-CREATE TABLE inventory (
-  id            BIGINT PRIMARY KEY AUTO_INCREMENT,
-  warehouse_id  BIGINT NOT NULL,
-  sku_id        BIGINT NOT NULL,
-  location_id   BIGINT NOT NULL,
-  qty_on_hand   DECIMAL(18,3) NOT NULL DEFAULT 0,
-  qty_frozen    DECIMAL(18,3) NOT NULL DEFAULT 0,
-  version       BIGINT NOT NULL DEFAULT 0,
-  UNIQUE (warehouse_id, sku_id, location_id)
-  -- qty_available = qty_on_hand - qty_frozen（查询计算或生成列）
-) ENGINE=InnoDB;
-
-CREATE TABLE inventory_ledger (
-  id            BIGINT PRIMARY KEY AUTO_INCREMENT,
-  warehouse_id  BIGINT NOT NULL,
-  sku_id        BIGINT NOT NULL,
-  location_id   BIGINT NOT NULL,
-  change_qty    DECIMAL(18,3) NOT NULL,
-  bal_qty       DECIMAL(18,3) NOT NULL,
-  ref_type      VARCHAR(32) NOT NULL,  -- PUTAWAY / ALLOCATE / PICK / RELEASE / STOCKTAKE
-  ref_id        BIGINT NOT NULL,
-  ref_line_id   BIGINT NULL,
-  ref_no        VARCHAR(64) NOT NULL,
-  operator_id   BIGINT NOT NULL,
-  created_at    DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
-) ENGINE=InnoDB;</pre>
 
       <div class="callout">
-        分配伪代码：在事务内 <code>UPDATE inventory SET qty_frozen = qty_frozen + :q, version = version + 1 WHERE id = :id AND version = :ver AND (qty_on_hand - qty_frozen) &gt;= :q</code>。实扣：同步减少 <code>qty_frozen</code> 与 <code>qty_on_hand</code>。释放预留：仅减少 <code>qty_frozen</code>。
-      </div>
-
-      <h2 id="d6">6. API 设计（节选）</h2>
-      <p>统一前缀 <code>/api/v1</code>；鉴权 Header：<code>Authorization: Bearer &lt;token&gt;</code>；写接口建议带幂等键；响应包络：</p>
-      <pre>{
-  "code": 0,
-  "message": "ok",
-  "data": { },
-  "traceId": "..."
-}</pre>
-
-      <table>
-        <thead>
-          <tr><th>方法</th><th>路径</th><th>说明</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>POST</td><td>/auth/login</td><td>登录，返回 JWT</td></tr>
-          <tr><td>GET/POST</td><td>/warehouses</td><td>仓库（MVP 只启用一个）</td></tr>
-          <tr><td>GET/POST</td><td>/skus</td><td>商品列表 / 创建</td></tr>
-          <tr><td>GET/POST</td><td>/locations</td><td>库位管理</td></tr>
-          <tr><td>POST</td><td>/inbound-orders</td><td>创建入库单</td></tr>
-          <tr><td>POST</td><td>/inbound-orders/{id}/approve</td><td>审核入库单</td></tr>
-          <tr><td>POST</td><td>/inbound-orders/{id}/putaway</td><td>上架（部分）；增在库</td></tr>
-          <tr><td>POST</td><td>/outbound-orders</td><td>创建出库单</td></tr>
-          <tr><td>POST</td><td>/outbound-orders/{id}/approve</td><td>审核 = 分配（预留）</td></tr>
-          <tr><td>POST</td><td>/outbound-orders/{id}/pick</td><td>拣货 = 预留实扣（部分）</td></tr>
-          <tr><td>POST</td><td>/outbound-orders/{id}/cancel</td><td>取消未拣：释放预留</td></tr>
-          <tr><td>GET</td><td>/inventories</td><td>按仓库/SKU/库位查询</td></tr>
-          <tr><td>GET</td><td>/inventories/ledgers</td><td>库存流水</td></tr>
-          <tr><td>GET</td><td>/inventories/alerts</td><td>库存预警</td></tr>
-          <tr><td>POST</td><td>/stocktakes</td><td>创建盘点并加盘点锁</td></tr>
-          <tr><td>POST</td><td>/stocktakes/{id}/approve</td><td>审核盈亏、调账、释锁</td></tr>
-        </tbody>
-      </table>
-
-      <h2 id="d7">7. 单据状态机</h2>
-      <h3>入库</h3>
-      <div class="flow">
-        <span>DRAFT</span><span class="arrow">→</span>
-        <span>PENDING</span><span class="arrow">→</span>
-        <span>APPROVED</span><span class="arrow">→</span>
-        <span>PUTAWAY</span><span class="arrow">→</span>
-        <span>DONE</span>
-      </div>
-      <p>未上架可转 <code>CANCELLED</code>。已上架数量不可靠取消抹掉；纠错走调整或二期冲销。</p>
-
-      <h3>出库</h3>
-      <div class="flow">
-        <span>DRAFT</span><span class="arrow">→</span>
-        <span>PENDING</span><span class="arrow">→</span>
-        <span>APPROVED</span><span class="arrow">→</span>
-        <span>PICKING</span><span class="arrow">→</span>
-        <span>DONE</span>
-      </div>
-      <p><code>APPROVED</code> 时已完成分配。取消：释放未拣预留；若已有实扣，已出库部分保留，未拣关闭或整单按规则终结。已实扣纠错 → 退货入库。</p>
-
-      <h2 id="d8">8. 工程结构（Monorepo 示例）</h2>
-      <pre>wms/
-├── apps/
-│   ├── package.json         # 前端 pnpm workspace 根
-│   ├── pnpm-workspace.yaml
-│   ├── web-admin/           # Vue3 网页后台
-│   └── mini-program/        # 小程序作业端
-├── services/
-│   └── wms-api/             # FastAPI（uv 管理依赖）
-│       ├── app/
-│       │   ├── platform/    # iam + 操作日志
-│       │   ├── catalog/
-│       │   ├── inventory/
-│       │   ├── inbound/
-│       │   ├── outbound/
-│       │   └── stocktake/
-│       ├── alembic/         # MySQL 迁移
-│       ├── tests/           # pytest + httpx
-│       ├── .env.example
-│       ├── pyproject.toml
-│       └── uv.lock
-├── src/                     # 领域 CONTEXT.md（与包名对齐）
-│   ├── catalog/CONTEXT.md
-│   ├── inventory/CONTEXT.md
-│   ├── inbound/CONTEXT.md
-│   ├── outbound/CONTEXT.md
-│   └── stocktake/CONTEXT.md
-├── docs/                    # 本 HTML 文档集
-├── CONTEXT-MAP.md
-└── docker-compose.yml</pre>
-
-      <h2 id="d9">9. 开发规范</h2>
-      <ul>
-        <li>分支：<code>main</code> 保护；功能分支 <code>feature/*</code>；发版打 tag</li>
-        <li>提交信息：简体中文，说明「为什么」</li>
-        <li>领域用语与 <a href="domain.html">领域模型</a> / <code>CONTEXT.md</code> 一致，避免「冻结」一词混用</li>
-        <li>接口变更更新 OpenAPI；破坏性变更升 <code>/api/v2</code></li>
-        <li>配置与密钥：pydantic-settings + <code>.env</code>（不入库）；Compose/环境变量注入</li>
-        <li>时间：DB 与 API 统一 UTC；前端/小程序展示再转本地</li>
-        <li>CORS：开发环境白名单本地 Vite 源（默认 <code>http://localhost:5173</code>）；小程序不依赖浏览器 CORS</li>
-        <li>Web Admin：JWT 存 sessionStorage；路由 <code>meta.permission</code> 与 <code>/auth/me</code> 权限码一致；API 类型从 <code>/openapi.json</code> 生成</li>
-        <li>Web Admin 测试：Vitest 覆盖 auth/permission/API 封装；Playwright E2E 待 M2 核心流贯通后补充</li>
-        <li>库存单测/集成测必覆盖：分配不足、实扣、释放预留、乐观锁冲突、幂等、盘点锁拒绝进出（pytest + httpx）</li>
-        <li>禁止在 Controller 或 inbound/outbound 包直接 UPDATE <code>inventory</code></li>
-        <li>操作日志与库存流水分表存储、分接口查询</li>
-      </ul>
-
-      <h2 id="d10">10. 里程碑计划</h2>
-      <table>
-        <thead>
-          <tr><th>阶段</th><th>周期</th><th>交付物</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>M0 开工</td><td>第 1 周</td><td>Monorepo、CI、uv 初始化 API、登录骨架、Alembic（含 warehouse）</td></tr>
-          <tr><td>M1 主数据</td><td>第 2–3 周</td><td>仓库/SKU/库位 CRUD、权限菜单</td></tr>
-          <tr><td>M2 入库闭环</td><td>第 4–5 周</td><td>入库单 + 部分上架 + 增库存 + 流水</td></tr>
-          <tr><td>M3 出库闭环</td><td>第 6–7 周</td><td>分配预留 + 拣货实扣 + 取消释放 + 防超卖</td></tr>
-          <tr><td>M4 盘点报表</td><td>第 8–9 周</td><td>盘点锁、盈亏调账、预警、导出、操作日志</td></tr>
-          <tr><td>M5 上线</td><td>第 10–11 周</td><td>UAT、并发测试、小程序作业面、备份演练</td></tr>
-        </tbody>
-      </table>
-
-      <h2 id="d11">11. 部署与运维要点</h2>
-      <ul>
-        <li>环境：dev / staging / prod 隔离；密钥走环境变量</li>
-        <li>数据库每日备份；恢复演练至少每季度一次（步骤见 <a href="runbooks/mysql-backup-restore.md">MySQL 备份与恢复 Runbook</a>）</li>
-        <li>健康检查：<code>GET /health</code> 返回 JSON（<code>status</code> + <code>checks.database</code>）；DB 不可达时 HTTP 503 + <code>degraded</code>，便于负载均衡摘流；本地无库可设 <code>HEALTH_CHECK_DB=false</code></li>
-        <li>监控：API 错误率、接口耗时、分配/实扣失败率、连接池</li>
-        <li>上线检查清单：迁移脚本、回滚方案、默认仓库种子数据、初始管理员</li>
-      </ul>
-
-      <h2 id="d12">12. 后端实现状态与缺口</h2>
-      <p>本节记录 <code>services/wms-api</code> 相对 MVP 需求（<a href="requirements.html">requirements</a>）与里程碑（§10）的<strong>当前完成度与待办</strong>。Agent / 开发者接后端任务前先读本节，避免重复盘点。</p>
-
-      <h3>12.1 里程碑完成度</h3>
-      <table>
-        <thead>
-          <tr><th>阶段</th><th>状态</th><th>说明</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>M0 开工</td><td>已完成</td><td>Monorepo、uv、FastAPI 骨架、登录、Alembic（<code>0001_m0</code>）</td></tr>
-          <tr><td>M1 主数据</td><td>已完成</td><td>仓库/SKU/库位/供应商/客户 CRUD + 停用（<code>0002_m1</code>）；RBAC 权限码</td></tr>
-          <tr><td>M2 入库闭环</td><td>已完成</td><td>入库单 + 部分上架 + 库存增账 + 流水（<code>0003_m2</code>）</td></tr>
-          <tr><td>M3 出库闭环</td><td>已完成</td><td>分配预留 + 拣货实扣 + 取消释放 + 乐观锁防超卖（<code>0004_m3</code>）</td></tr>
-          <tr><td>M4 盘点报表</td><td>已完成</td><td>盘点锁、盈亏调账、库存预警、日报 JSON/CSV、操作日志（<code>0005_m4</code>–<code>0007_m6</code>）</td></tr>
-          <tr><td>M5 上线</td><td>进行中</td><td>UAT 已纳入 PR/main CI；小程序作业面主路径已交付、typecheck/test 门禁已纳入；压测仍待</td></tr>
-        </tbody>
-      </table>
-
-      <h3>12.2 已实现模块（API 概览）</h3>
-      <table>
-        <thead>
-          <tr><th>包</th><th>已实现路由</th></tr>
-        </thead>
-        <tbody>
-          <tr><td><code>platform</code></td><td><code>POST /auth/login</code>、<code>GET /auth/me</code>（含 <code>permissions</code>）；<code>GET /operation-logs</code>（列表分页）；<code>GET /dictionaries</code>（列表分页）、<code>POST /dictionaries</code>、<code>PATCH /dictionaries/{id}</code>、<code>POST .../deactivate</code>；<code>GET /users</code>（列表分页）、<code>POST /users</code>、<code>POST /users/{id}/deactivate</code>、<code>POST /users/{id}/reset-password</code>、<code>PATCH /users/{id}/role</code>；<code>GET /reports/daily</code>、<code>GET /reports/daily.csv</code></td></tr>
-          <tr><td><code>catalog</code></td><td>仓库 / SKU / 库位 / 供应商 / 客户：列表分页、详情、创建、更新、<code>POST .../deactivate</code></td></tr>
-          <tr><td><code>inventory</code></td><td><code>GET /inventories</code>、<code>GET /inventories/ledgers</code>、<code>GET /inventories/alerts</code>（只读列表分页；写路径经 application 端口供其它上下文调用）</td></tr>
-          <tr><td><code>inbound</code></td><td><code>GET /inbound-orders</code>（列表分页）、<code>POST /inbound-orders</code>、<code>GET /inbound-orders/{id}</code>、<code>PATCH ...</code>、submit / approve / putaway / cancel</td></tr>
-          <tr><td><code>outbound</code></td><td><code>GET /outbound-orders</code>（列表分页）、<code>POST /outbound-orders</code>、<code>GET /outbound-orders/{id}</code>、<code>PATCH ...</code>、submit / approve / pick / cancel</td></tr>
-          <tr><td><code>stocktake</code></td><td><code>GET /stocktakes</code>（列表分页）、<code>POST /stocktakes</code>、<code>GET /stocktakes/{id}</code>、counts / approve / cancel</td></tr>
-        </tbody>
-      </table>
-      <p>写操作幂等：上架、出库 approve/pick/cancel、盘点 create/approve/cancel 须请求头 <code>Idempotency-Key</code>。OpenAPI 与 README 见 <code>services/wms-api/</code>。</p>
-
-      <h3>12.3 测试与验收门禁</h3>
-      <table>
-        <thead>
-          <tr><th>套件</th><th>位置</th><th>用途</th><th>当前</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>日常集成测</td><td><code>services/wms-api/tests/</code>（不含 <code>uat/</code>）</td><td>PR 回归</td><td>120 用例；需可达 MySQL</td></tr>
-          <tr><td>后端 UAT</td><td><code>services/wms-api/tests/uat/</code></td><td>发版/上线门禁（纯自动化）</td><td>24 用例；PR/main CI 自动跑；staging 可 <code>UAT_BASE_URL</code> 重跑</td></tr>
-          <tr><td>Web Admin E2E</td><td><code>apps/web-admin/e2e/</code></td><td>前端核心路径（mock API）</td><td>PR/main CI 自动跑 Playwright</td></tr>
-          <tr><td>Mini-program</td><td><code>apps/mini-program/</code></td><td>作业端 typecheck + Vitest</td><td>PR/main CI：<code>mini-program-test.yml</code>（path filter）</td></tr>
-          <tr><td>需求追溯</td><td><code>docs/uat/uat-coverage.md</code></td><td>需求验收 ↔ UAT 用例对照</td><td>无人工签字</td></tr>
-        </tbody>
-      </table>
-      <p>无 MySQL 且未设 <code>UAT_BASE_URL</code> 时集成测与 UAT 均 <code>pytest.skip</code>，不假绿。UAT 观测缺口登记见 <code>services/wms-api/tests/uat/README.md</code>。</p>
-
-      <h3>12.4 待补齐（MVP 内）</h3>
-      <p>以下缺口<strong>不在</strong>需求「MVP 范围外」之列，对接 Web 管理端或发版前建议优先处理。</p>
-
-      <h4>管理端 API</h4>
-      <p>只读列表分页（主数据、库存、操作日志、字典、用户）已与单据列表对齐 <code>page</code> / <code>page_size</code> 约定（#16）。</p>
-
-      <h4>工程与运维（M5）</h4>
-      <table>
-        <thead>
-          <tr><th>缺口</th><th>说明</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>CI 流水线</td><td>PR/main：<code>wms-api-test.yml</code>（MySQL 8 + 集成测 + UAT）；staging：<code>wms-api-uat.yml</code>（手动 + 可选 <code>uat_base_url</code>）；前端：<code>web-admin-test.yml</code>、<code>mini-program-test.yml</code>（typecheck + unit test）</td></tr>
-          <tr><td>健康检查</td><td><code>GET /health</code> 探测 MySQL（<code>SELECT 1</code>）；失败 HTTP 503 + <code>degraded</code>；可选 <code>HEALTH_CHECK_DB=false</code></td></tr>
-          <tr><td>性能/压测</td><td>仅集成测覆盖轻量「并发分配不超卖」；无 P95 / 日单据量压测</td></tr>
-          <tr><td>备份恢复演练</td><td><a href="runbooks/mysql-backup-restore.md">Runbook</a> 已文档化；季度演练仍建议保留（运维流程，非业务 UAT）</td></tr>
-          <tr><td>监控告警</td><td><code>GET /metrics</code>（Prometheus：HTTP 错误率/耗时、连接池、库存写路径 counter）；告警规则示例见 <a href="runbooks/operational-monitoring.md">Runbook</a>（#15）</td></tr>
-        </tbody>
-      </table>
-
-      <h4>已知观测缺口（非阻塞）</h4>
-      <ul>
-        <li>无「列出当前盘点锁覆盖库位」只读 API；验收经对被锁库位上架/拣货返回 409 间接证明（见 UAT README）。</li>
-        <li>日报 CSV 直出，不走 JSON 信封（<code>code/message/data/traceId</code>）。</li>
-      </ul>
-
-      <h3>12.5 明确不在 MVP（二期）</h3>
-      <p>以下能力在 <a href="requirements/overview.md">overview.md</a>「MVP 范围外」已排除，<strong>不算当前后端缺口</strong>：Refresh Token、Redis 会话、PDA 扫码、波次拣货、保质期 FEFO、多仓调拨自动化、ERP 深度双向同步、红冲单细化。</p>
-
-      <h3>12.6 建议优先级</h3>
-      <ol>
-        <li><strong>支撑 Web 管理端</strong>：只读列表分页已完成（#16）；技术栈与 <code>apps/web-admin/</code> 骨架已定（<a href="adr/0003-web-admin-vue-element-plus.md">ADR-0003</a>）；下一步登录联调与各模块列表页对接。</li>
-        <li><strong>发版门禁</strong>：PR/main CI 自动跑集成测 + UAT + Web Admin E2E；staging 部署后可选 <code>wms-api-uat.yml</code> + <code>UAT_BASE_URL</code>（见 <a href="uat/staging-uat.md">staging 指南</a>）。追溯见 <a href="uat/uat-coverage.md">uat-coverage.md</a>。</li>
-        <li><strong>生产就绪</strong>：健康检查探 DB（已完成）、<a href="runbooks/mysql-backup-restore.md">备份 Runbook</a>（已完成）、<a href="runbooks/operational-monitoring.md">运行监控</a>（#15 已完成）。</li>
-      </ol>
-
-      <h2 id="d13">13. 小程序作业端（M5）</h2>
-      <p>仓管员<strong>上架 / 拣货</strong>作业面，与 web-admin 共用 FastAPI。业务规则见 <a href="requirements/inbound.md">inbound.md</a>、<a href="requirements/outbound.md">outbound.md</a>；实现细则见 <code>docs/mini-program/</code>；UI 见 <code>design-system/wms/MASTER-MINI.md</code> 与各页 <code>pages/*.md</code>。</p>
-
-      <h3>13.0 进度（权威）</h3>
-      <table>
-        <thead>
-          <tr><th>项</th><th>状态</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>功能主路径（登录 / 待办 / 入库上架 / 出库拣货 / 我的）</td><td>已交付（源码 + Vitest；见 #32）</td></tr>
-          <tr><td>OpenAPI 类型</td><td>已落地：<code>generate:api</code> → <code>src/types/openapi.d.ts</code>，参与 typecheck</td></tr>
-          <tr><td>CI 门禁</td><td>已纳入：<code>mini-program-test.yml</code>（path filter → typecheck + unit test）</td></tr>
-          <tr><td>微信开发者工具人工走查</td><td>见 §13.5 清单；关闭 #33 前须由人勾选必过项</td></tr>
-        </tbody>
-      </table>
-      <p>明确不做（不阻塞 M5 作业面完成判据）：uni-ui/组件抽取、待办 <code>pendingLineCount</code>、PDA 扫码、离线、Refresh Token、微信 E2E 自动化等（见 #33 Out of Scope）。</p>
-
-      <h3>13.1 定位与范围</h3>
-      <table>
-        <thead>
-          <tr><th>做</th><th>不做（MVP）</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>登录（仅 <code>operator</code> 仓管员）</td><td>创建 / 审核入出库单</td></tr>
-          <tr><td>待办：待上架入库单、待拣货出库单</td><td>盘点、主数据、报表、扫码</td></tr>
-          <tr><td>按行上架、按行拣货（实扣）</td><td>离线队列、Refresh Token</td></tr>
-        </tbody>
-      </table>
-
-      <h3>13.2 技术栈</h3>
-      <table>
-        <thead>
-          <tr><th>项</th><th>选型</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>框架</td><td>uni-app 3 + Vue 3 + TypeScript + Vite（<code>apps/mini-program/</code>）</td></tr>
-          <tr><td>平台</td><td>微信小程序（H5 仅开发预览）</td></tr>
-          <tr><td>UI</td><td>uni-ui + SCSS token（<code>MASTER-MINI.md</code>）</td></tr>
-          <tr><td>状态</td><td>Pinia；JWT 存 <code>uni.storage</code></td></tr>
-          <tr><td>API</td><td><code>uni.request</code>；OpenAPI 类型独立生成；写操作 <code>Idempotency-Key</code></td></tr>
-        </tbody>
-      </table>
-
-      <h3>13.3 路由与 Tab</h3>
-      <ul>
-        <li><strong>TabBar</strong>：待办 · 我的</li>
-        <li><strong>栈页</strong>：登录、入库/出库详情、上架/拣货执行</li>
-        <li>待办数据：并行拉取 <code>inbound-orders</code>（<code>approved</code>+<code>putaway</code>）与 <code>outbound-orders</code>（<code>approved</code>+<code>picking</code>），客户端合并排序</li>
-      </ul>
-
-      <h3>13.4 文档索引</h3>
-      <table>
-        <thead>
-          <tr><th>文档</th><th>路径</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>开发文档地图</td><td><code>docs/mini-program/README.md</code></td></tr>
-          <tr><td>架构 / 鉴权 / API / 页面 / 规范</td><td><code>docs/mini-program/*.md</code></td></tr>
-          <tr><td>小程序设计 Master</td><td><code>design-system/wms/MASTER-MINI.md</code></td></tr>
-          <tr><td>页面 UI override</td><td><code>design-system/wms/pages/{login,todo,my,order-detail,inbound-putaway,outbound-pick}.md</code></td></tr>
-          <tr><td>本地 README</td><td><code>apps/mini-program/README.md</code></td></tr>
-        </tbody>
-      </table>
-
-      <h3>13.5 人工走查清单（微信开发者工具，必过）</h3>
-      <p>基础库 ≥ 2.19.2；对真实或 UAT API。Agent 不能代替勾选；全部必过项通过后关闭 #33。</p>
-      <ul>
-        <li>☐ operator 登录成功并进入待办</li>
-        <li>☐ 非 operator 见无权空态且可回到登录</li>
-        <li>☐ 待办展示待上架入库与待拣货出库；筛选全部/入库/出库可用；下拉刷新可用</li>
-        <li>☐ 入库详情 → 上架：选库位、提交数量、成功返回详情且数量更新</li>
-        <li>☐ 出库详情 → 拣货：分配库位只读、提交实扣、成功返回详情且数量更新</li>
-        <li>☐ 我的展示用户/角色/仓库只读信息；退出回到登录</li>
-        <li>☐ 写操作失败（如盘点锁或校验错误）有提示且不导致无法重试的空白态</li>
-      </ul>
-      <p>（可选）☐ 网络断开提示、☐ 幂等重试不重复记账——有环境则测，不阻塞关闭。</p>
-
-      <div class="callout">
-        领域核心主路径（建仓 → 入库上架 → 库存可见 → 出库分配/实扣 → 流水按行可查）已在 API 与 UAT 中验收；小程序作业面主路径与工程门禁见 §13.0。返回 <a href="index.html">总览</a> · <a href="domain.html">领域模型</a> · <a href="requirements.html">需求文档</a> · <a href="mini-program/README.md">小程序开发文档</a>。
+        相关：<a href="domain.html">领域模型</a> · <a href="requirements.html">需求文档</a> · <a href="mini-program/README.md">小程序开发文档</a> · <a href="index.html">总览</a>
       </div>
     </article>
   </div>
 
   <footer class="site-footer">
-    仓脉 WMS · 开发文档 WMS-SDD-001 v1.4 · <a href="index.html">返回总览</a>
+    仓脉 WMS · 开发文档索引 · <a href="index.html">返回总览</a>
   </footer>
 </body>
 </html>

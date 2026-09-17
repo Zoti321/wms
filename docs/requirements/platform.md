@@ -1,7 +1,7 @@
 # 平台：身份、权限与审计（platform）
 
 本模块**不是**领域限界上下文（见 `CONTEXT-MAP.md` 排除说明）。  
-实现：[`docs/development.html`](../development.html)（platform / IAM）
+实现：[`docs/dev/architecture.md`](../dev/architecture.md)（platform / IAM）
 
 ## 目标与范围
 

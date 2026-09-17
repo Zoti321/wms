@@ -1,7 +1,7 @@
 # 入库（inbound）
 
 术语：[`src/inbound/CONTEXT.md`](../../src/inbound/CONTEXT.md)  
-实现：[`docs/development.html`](../development.html)（模块 inbound）
+实现：[`docs/dev/architecture.md`](../dev/architecture.md)（模块 inbound）
 
 ## 目标与范围
 

@@ -1,7 +1,7 @@
 # 主数据（catalog）
 
 术语：[`src/catalog/CONTEXT.md`](../../src/catalog/CONTEXT.md)  
-实现：[`docs/development.html`](../development.html)（模块 catalog）
+实现：[`docs/dev/architecture.md`](../dev/architecture.md)（模块 catalog）
 
 ## 目标与范围
 
