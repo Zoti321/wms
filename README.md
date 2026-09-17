@@ -9,7 +9,7 @@
 | 人类阅读文档 | [`docs/index.html`](docs/index.html) 或 `./scripts/open-docs.sh` |
 | 文档地图（Markdown） | [`docs/README.md`](docs/README.md) |
 | 领域术语 | [`CONTEXT-MAP.md`](CONTEXT-MAP.md) → `src/*/CONTEXT.md` |
-| 模块需求（SRS） | [`docs/requirements/README.md`](docs/requirements/README.md) |
+| 模块需求（SRS） | [`docs/domains/README.md`](docs/domains/README.md) |
 | 开发设计 | [`docs/dev/README.md`](docs/dev/README.md) |
 | 后端本地运行 | [`services/wms-api/README.md`](services/wms-api/README.md) |
 | 网页后台 | [`apps/web-admin/README.md`](apps/web-admin/README.md) |

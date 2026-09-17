@@ -4,7 +4,7 @@
 
 实现路径：技术栈、限界上下文落码、数据模型、API、状态机与里程碑。
 
-- **业务规则**：[`docs/requirements/README.md`](../requirements/README.md)（模块化 SRS）
+- **业务规则**：[`docs/domains/README.md`](../domains/README.md)（模块化 SRS）
 - **术语**：[`CONTEXT-MAP.md`](../../CONTEXT-MAP.md) 与各 [`src/*/CONTEXT.md`](../../src/inventory/CONTEXT.md)
 - **架构决策**：[`docs/adr/`](../adr/)
 

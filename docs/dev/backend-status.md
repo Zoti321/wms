@@ -1,6 +1,6 @@
 # 后端实现状态与缺口
 
-本节记录 `services/wms-api` 相对 MVP 需求（[`docs/requirements/`](../requirements/README.md)）与 [里程碑](./milestones.md) 的**当前完成度与待办**。Agent / 开发者接后端任务前先读本节，避免重复盘点。
+本节记录 `services/wms-api` 相对 MVP 需求（[`docs/domains/`](../domains/README.md)）与 [里程碑](./milestones.md) 的**当前完成度与待办**。Agent / 开发者接后端任务前先读本节，避免重复盘点。
 
 ## 里程碑完成度
 
@@ -63,7 +63,7 @@
 
 ## 明确不在 MVP（二期）
 
-以下能力在 [overview.md](../requirements/overview.md)「MVP 范围外」已排除，**不算当前后端缺口**：Refresh Token、Redis 会话、PDA 扫码、波次拣货、保质期 FEFO、多仓调拨自动化、ERP 深度双向同步、红冲单细化。
+以下能力在 [overview.md](../domains/overview.md)「MVP 范围外」已排除，**不算当前后端缺口**：Refresh Token、Redis 会话、PDA 扫码、波次拣货、保质期 FEFO、多仓调拨自动化、ERP 深度双向同步、红冲单细化。
 
 ## 建议优先级
 

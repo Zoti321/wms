@@ -35,45 +35,45 @@
       </div>
 
       <h1>仓脉 WMS 需求文档</h1>
-      <p class="lead">需求已按限界上下文拆成 Markdown 模块，便于人读目录、Agent 按任务局部加载。术语以 <a href="domain.html">领域模型</a> 为准；本页只做导航。</p>
+      <p class="lead">模块 SRS 已按限界上下文拆成 Markdown，正文在 <code>docs/domains/</code>。术语见 <a href="domain.html">领域模型</a> / <code>src/*/CONTEXT.md</code>；本页只做导航。</p>
 
       <div class="callout">
-        <strong>权威正文：</strong><code>docs/requirements/*.md</code>。地图见 <a href="requirements/README.md">requirements/README.md</a>。
+        <strong>权威正文：</strong><code>docs/domains/*.md</code>。地图见 <a href="domains/README.md">domains/README.md</a>。
       </div>
 
       <h2>模块</h2>
       <div class="grid-2">
-        <a class="card-link" href="requirements/overview.md">
+        <a class="card-link" href="domains/overview.md">
           <div class="num">00 · OVERVIEW</div>
           <h2>总览</h2>
           <p>背景目标、MVP 范围、角色、非功能、全局业务规则。</p>
         </a>
-        <a class="card-link" href="requirements/catalog.md">
+        <a class="card-link" href="domains/catalog.md">
           <div class="num">01 · CATALOG</div>
           <h2>主数据</h2>
           <p>仓库、SKU、库位、供应商/客户。</p>
         </a>
-        <a class="card-link" href="requirements/inventory.md">
+        <a class="card-link" href="domains/inventory.md">
           <div class="num">02 · INVENTORY</div>
           <h2>库存</h2>
           <p>唯一账本、流水、预警、分配/实扣记账。</p>
         </a>
-        <a class="card-link" href="requirements/inbound.md">
+        <a class="card-link" href="domains/inbound.md">
           <div class="num">03 · INBOUND</div>
           <h2>入库</h2>
           <p>入库单、部分上架、上架记录。</p>
         </a>
-        <a class="card-link" href="requirements/outbound.md">
+        <a class="card-link" href="domains/outbound.md">
           <div class="num">04 · OUTBOUND</div>
           <h2>出库</h2>
           <p>分配预留、拣货实扣、取消释放。</p>
         </a>
-        <a class="card-link" href="requirements/stocktake.md">
+        <a class="card-link" href="domains/stocktake.md">
           <div class="num">05 · STOCKTAKE</div>
           <h2>盘点</h2>
           <p>盘点锁、实盘、盈亏审核。</p>
         </a>
-        <a class="card-link" href="requirements/platform.md">
+        <a class="card-link" href="domains/platform.md">
           <div class="num">06 · PLATFORM</div>
           <h2>平台</h2>
           <p>登录鉴权、角色权限、操作日志、字典。</p>
@@ -82,9 +82,9 @@
 
       <h2>Agent 怎么用</h2>
       <ol class="steps">
-        <li>打开 <a href="requirements/README.md">README 地图</a>，按任务选模块。</li>
-        <li>读该模块 MD + 对应 <code>src/&lt;ctx&gt;/CONTEXT.md</code>。</li>
-        <li>涉及跨模块硬约束时加读 <a href="requirements/overview.md">overview.md</a>。</li>
+        <li>打开 <a href="domains/README.md">README 地图</a>，按任务选模块 SRS。</li>
+        <li>读该模块 + 对应 <code>src/&lt;ctx&gt;/CONTEXT.md</code>（术语 glossary）。</li>
+        <li>涉及跨模块硬约束时加读 <a href="domains/overview.md">overview.md</a>。</li>
         <li>表结构 / API 以 <a href="dev/README.md">开发文档</a> 为准，需求模块不重复。</li>
       </ol>
 

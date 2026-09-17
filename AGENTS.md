@@ -10,4 +10,4 @@ Multi-context: root `CONTEXT-MAP.md` → per-context `CONTEXT.md` + `docs/adr/`.
 
 ### Requirements
 
-Modular SRS under `docs/requirements/` (Markdown is authoritative). Start at `docs/requirements/README.md`; load only overview + relevant context modules for a task. Human index: `docs/requirements.html`.
+Modular SRS under `docs/domains/` (Markdown is authoritative). Start at `docs/domains/README.md`; load only overview + relevant context modules + matching `src/*/CONTEXT.md` (glossary). Human index: `docs/requirements.html`.

@@ -1,6 +1,6 @@
 # 小程序作业端（M5）
 
-仓管员**上架 / 拣货**作业面，与 web-admin 共用 FastAPI。业务规则见 [inbound.md](../requirements/inbound.md)、[outbound.md](../requirements/outbound.md)；实现细则见 [`docs/mini-program/`](../mini-program/README.md)；UI 见 `design-system/wms/MASTER-MINI.md` 与各页 `pages/*.md`。
+仓管员**上架 / 拣货**作业面，与 web-admin 共用 FastAPI。业务规则见 [inbound.md](../domains/inbound.md)、[outbound.md](../domains/outbound.md)；实现细则见 [`docs/mini-program/`](../mini-program/README.md)；UI 见 `design-system/wms/MASTER-MINI.md` 与各页 `pages/*.md`。
 
 ## 进度（权威）
 

@@ -58,7 +58,7 @@
 1. `docs/mini-program/README.md`
 2. 任务相关模块 md（本目录）
 3. `design-system/wms/MASTER-MINI.md` + 目标页 `pages/*.md`
-4. 若动到业务规则：`docs/requirements/inbound.md` 或 `outbound.md` + 对应 `CONTEXT.md`
+4. 若动到业务规则：`docs/domains/inbound.md` 或 `outbound.md` + 对应 `src/*/CONTEXT.md`
 
 ## 明确不做（MVP）
 

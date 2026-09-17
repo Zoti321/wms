@@ -29,7 +29,8 @@ wms/
 │   └── stocktake/CONTEXT.md
 ├── docs/
 │   ├── dev/                 # 开发设计（本目录，Markdown 权威）
-│   ├── requirements/        # 模块化 SRS
+│   ├── domains/             # 模块化 SRS
+│   ├── requirements/        # 已废弃，指针至 domains/
 │   ├── adr/
 │   └── mini-program/
 ├── CONTEXT-MAP.md
