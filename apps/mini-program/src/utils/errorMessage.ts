@@ -1,0 +1,11 @@
+import { ApiError } from '@/types/api'
+
+export function errorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    return error.message || fallback
+  }
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+  return fallback
+}

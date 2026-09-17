@@ -10,6 +10,11 @@
     "build:web-admin": "pnpm --filter web-admin build",
     "test:web-admin": "pnpm --filter web-admin test",
     "typecheck:web-admin": "pnpm --filter web-admin typecheck",
-    "test:e2e:web-admin": "pnpm --filter web-admin test:e2e"
+    "test:e2e:web-admin": "pnpm --filter web-admin test:e2e",
+    "dev:mini-program:h5": "pnpm --filter mini-program dev:h5",
+    "dev:mini-program:weixin": "pnpm --filter mini-program dev:mp-weixin",
+    "build:mini-program:weixin": "pnpm --filter mini-program build:mp-weixin",
+    "test:mini-program": "pnpm --filter mini-program test",
+    "typecheck:mini-program": "pnpm --filter mini-program typecheck"
   }
 }
